@@ -1,0 +1,203 @@
+---
+title: "CNN Transcripts"
+author: "Micah Williams"
+date: "12/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.height = 7,
+                      fig.width = 10)
+
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+library(RColorBrewer)
+
+library(extrafont)
+```
+
+```{r import}
+cnn <- read_csv('data/cnn_links_b.csv') %>% mutate(id = row_number())
+
+nrow(cnn)
+
+link_list <- cnn[1:100, 'href']
+write_csv(link_list, 'data/link_test.csv')
+
+show_c <- tibble(show = unique(cnn$show)) %>%
+  mutate(show = if_else(str_starts(show, 'Anderson'),
+                        'Anderson Cooper 360',
+                        show),
+         show_c = janitor::make_clean_names(show))
+
+cnn.grp <- cnn %>% 
+  mutate(show_abbrev = str_replace(href, '(.+)/(\\w+)\\.(.+)[\r\n]*$', '\\2'),
+         show = if_else(str_starts(show, 'Anderson'),
+                        'Anderson Cooper 360',
+                        show)) %>%
+  filter(!id %in% c(13689, 54523)) %>%
+  left_join(show_c, by = 'show') %>%
+  group_by(show_abbrev)
+
+by(cnn.grp, cnn.grp$show_abbrev, function(i){write_csv(i, paste0('data/shows/',i$show_c[1],'.csv'))})
+```
+
+```{r}
+titles <- read_csv('data/titles_b.csv')
+
+getDate <- function(str){
+  mdy(
+    str_replace(
+      str_extract(str, '^[\\w ,]+'),
+      'Aired (.+) ', '\\1'))
+}
+
+splitTitle <- function(str){
+  cln <- str_extract(str, '^[^.]+')
+  topics = str_split(cln, '; ')[[1]]
+  tibble('topics' = topics)
+}
+
+titles.clean <- titles %>% 
+  filter(complete.cases(.)) %>% 
+  distinct() %>%
+  mutate(date = getDate(aired),
+         id = row_number(),
+         topics = map(title, ~splitTitle(.))) %>%
+  unnest(topics) %>%
+  select(id, show, date, topics) %>%
+  arrange(desc(date))
+
+# manually change dates where typo
+titles.clean[titles.clean$id == 1,'date'] <- mdy('September 12, 2017') # September 12, 2107
+titles.clean[titles.clean$id == 2067,'date'] <- mdy('February 5, 2018') # February 5, 20189
+titles.clean[titles.clean$id == 45333,'date'] <- mdy('June 15, 2020') # May 10, 1997June 15, 2020
+
+# remove rows with missing data
+titles.clean <- titles.clean %>% filter(complete.cases(.), id != 22766)
+
+glimpse(titles.clean)
+```
+
+```{r tidytext, fig.height = 7, fig.width=10}
+data(stop_words)
+
+fixShow <- function(str){
+  str_replace(str_to_title(str), 'Cnn', 'CNN')
+}
+
+tidy_cnn <- titles.clean %>%
+  unnest_tokens(word, topics)
+
+top_words <- tidy_cnn %>% 
+  anti_join(stop_words, by = 'word') %>%
+  group_by(word, show) %>% 
+  summarize(n = n(),
+            .groups = 'drop') %>%
+  arrange(desc(n))
+
+word.order <- top_words %>%
+  group_by(word) %>%
+  summarize(n = sum(n),
+            .groups = 'drop') %>%
+  arrange(desc(n))
+
+top_words <- top_words %>%
+  mutate(fct = factor(word, levels = pull(word.order, word)),
+         show = fixShow(show),
+         fill = case_when(str_starts(show, 'Anders') ~ show,
+                                str_starts(show, 'The Situation Room') ~ show,
+                                str_starts(show, 'CNN News') ~ show,
+                                str_starts(show, 'The Lead With') ~ show,
+                                str_starts(show, 'CNN Live') ~ show,
+                                TRUE ~ 'Other Programs'
+                                ),
+         fill = factor(fill, levels = unique(fill)[c(1:4,6,5)])) %>%
+  filter(fct %in% levels(fct)[1:20])
+
+totals <- top_words %>% 
+              group_by(fct) %>% 
+              summarize(n = sum(n), .groups = 'drop')
+
+palette = c(brewer.pal(5, 'Set1'),
+                       '#dddddd')
+
+top_words %>%
+  
+  ggplot(.) +
+  geom_col(aes(reorder(fct, n),
+               n, 
+               fill = fill)) +
+  
+  geom_text(aes(fct, n + 300, label = prettyNum(n,
+                                                big.mark = ',')),
+            hjust = 0,
+            color = '#fafafa',
+            data = totals) +
+  
+  labs(title = 'Word Frequency in CNN Broadcast Trancript Titles',
+       subtitle = 'Includes program titles from 39 shows from September 2002 until December 2020.\nAround 75% of programming in dataset was aired after Jan 1, 2016.',
+       y = 'Word Frequency',
+       x = '',
+       caption = 'Source: scraped data from transcripts.cnn.com/TRANSCRIPTS/') +
+  
+  scale_fill_manual(values = palette,
+                    name = '') +
+  scale_y_continuous(limits = c(0,27000),
+                     breaks = c(0:2) * 10^4,
+                     labels = prettyNum(c(0:2*10^4),
+                                        big.mark = ',')) +
+  
+  theme_minimal() +
+  theme(legend.position = c(0.86, 0.5),
+        legend.background = element_rect(fill = '#222222',
+                                         color= NA_character_),
+        plot.background = element_rect(fill = '#222222'),
+        text = element_text(color = '#fafafa',
+                            family = 'Gadugi'),
+        axis.text = element_text(color = '#fafafa'),
+        axis.text.y = element_text(size = rel(1.3),
+                                   hjust = 1),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_blank()) +
+  
+  coord_flip()
+
+ggsave('images/cnn_freq.png', width = 10, height = 7, dpi = 'retina')
+```
+
+```{r}
+query = c('climate', 'poverty', 'homeless')
+
+tidy_cnn %>% 
+  filter(word %in% query,
+         date >= as.Date('2009-01-01')) %>%
+  mutate(qtr = quarter(date, with_year = TRUE)) %>%
+  group_by(word, qtr) %>%
+  summarize(n = n(),
+            .groups = 'drop') %>%
+  arrange(desc(n)) %>%
+  
+  ggplot() +
+  geom_smooth(aes(qtr, n, color = word), se = F) +
+  
+  labs(title = 'Word Frequency of Climate, Poverty, Homeless in CNN Broadcast Transcript Titles',
+       x = 'Year',
+       y = 'Frequency') +
+  
+  scale_x_continuous(breaks = seq(2008, 2020, 2)) +
+  
+  theme_minimal() +
+  theme(legend.position = c(0.86, 0.5),
+        legend.background = element_rect(fill = '#222222'),
+        plot.background = element_rect(fill = '#222222'),
+        text = element_text(color = '#fafafa',
+                            family = 'Gadugi'),
+        axis.text = element_text(color = '#fafafa',
+                                 size = rel(1.3)),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank())
+```
+
