@@ -21,20 +21,31 @@
         <script src='app.js' defer></script>
     </head>
     <body>
-        <div id="progress-bar">d</div>
+        <!-- <div id='splash-page'>
+            <div class='landing'>
+                <button onclick='showSplash()'>hide</button>
+                <h1>CNN and Fox News</h1>
+                <h4>Micah Williams</h4>
+            </div>
+        </div> -->
         <div class='row'>
-            <div>
-                <button onclick='hidePoints()'>hide</button>
-                <button onclick='showPoints()'>show</button>
-                <button onclick='toMean()'>shift</button>
-                <button onclick='showLines()'>lines</button>
+            <div class='col-sm-12 col-md-4 scrollbox'>
+                <div class='buttons'>
+                    <button onclick='hideContainer()'>hide</button>
+                    <!-- <button onclick='hidePoints()'>hide</button> -->
+                    <button onclick='showContainer()'>container</button>
+                    <button onclick='showPoints()'>points</button>
+                    <button onclick='toMean()'>shift</button>
+                    <button onclick='showLines()'>lines</button>
+                </div>
+                
+                <section id='s1'>On December 3rd, 2020, Alex Shephard wrote a story for the New Republic titled, <a href="https://newrepublic.com/article/160439/media-trump-election-fraud-video">The Media is Finally Tuning Trump Out"</a></section>
+                <section id='s2'>Section 2</section>
+                <section id='s3'>Section 3</section>
+            </div>
+            <div class='col-md-8' id='svg-div'>
                 <svg></svg>
             </div>
-        </div>
-        <div class='scrollbox'>
-            <section id='s1'>Section 1</section>
-            <section id='s2'>Section 2</section>
-            <section id='s3'>Section 3</section>
         </div>
     </body>
 </html>
