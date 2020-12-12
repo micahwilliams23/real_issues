@@ -1,0 +1,67 @@
+::-webkit-scrollbar {
+    display: none;
+}
+  
+/* Hide scrollbar for IE, Edge and Firefox */
+.example {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+html {
+    overflow-x: hidden;
+    background-color: #111;
+}
+div {
+    background-color: #111;
+    align-content: center;
+}
+
+h2 {
+    padding-top: 10px;
+    color: white;
+}
+
+svg {
+    display: block;
+    margin: auto;
+    position: fixed;
+}
+
+.scrollbox {
+    display: block;
+    position:fixed;
+
+    right: 0;
+    width: 35%;
+    height: 100vh;
+
+    text-align: center;
+    overflow-y: scroll;
+}
+
+.scrollbox section{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: white;
+    font-size: 30px;
+}
+
+g{
+    color: white;
+}
+
+text {
+    font-size: 16px;
+}
+
+.axis-title {
+    font-size: 20px;
+    fill: white;
+}
+
+#plot-title {
+    font-size: 24px;
+}
