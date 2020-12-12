@@ -7,12 +7,30 @@ const trump = d3.csv('trump_averages.csv', function(x){
     };
 })
 
-window.scroll({behavior: 'smooth'});
-
 // set the dimensions and margins of the graph
-var margin = {top: 30, right: 30, bottom: 40, left: 60},
+var margin = {top: 50, right: 30, bottom: 30, left: 45},
 width = window.innerWidth * 0.65 - margin.left - margin.right,
 height = window.innerHeight - margin.top - margin.bottom;
+
+
+function showSplash(){
+
+    d3.select('#splash-page')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+
+        setTimeout(function(x){
+            d3.select('#splash-page')
+                .transition()
+                .duration(1000)
+                .attr('opacity', 0)
+                .attr('height', '10vh');
+
+            console.log('function fired')
+        },
+        1500)
+    };
 
 const xTicks = [2016, 2017, 2018, 2019, 2020, 2021];
 const xScale = d3.scaleLinear()
@@ -34,6 +52,7 @@ const delayScale = d3.scaleLinear()
     .range([0, 1000]);
 
 const container = d3.select('svg')
+    .attr('opacity', 0)
     .attr('width', width + margin.left + margin.right)
     .attr('height', height + margin.top + margin.bottom);
 
@@ -77,8 +96,8 @@ container.selectAll('.vline')
 container.append('text')
     .attr('id', 'plot-title')
     .attr('fill', 'white')
-    .attr('x', margin.left + 10)
-    .attr('y', 18);
+    .attr('x', margin.left - 10)
+    .attr('y', margin.top / 2);
 
 trump.then(function(d){
 
@@ -124,25 +143,6 @@ trump.then(function(d){
         });
 })
 
-function showPoints(){
-
-    // transition points
-    container.selectAll('circle')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-        .attr('cy', data => yScale(data.pct))
-        .delay(data => 0.5 * delayScale(data.week));
-
-    container.select('#plot-title')
-        .transition()
-        .duration(500)
-        .attr('fill-opacity', '0')
-        .transition()
-        .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week')
-};
-
 function hidePoints(){
 
     // transition points
@@ -165,6 +165,37 @@ function hidePoints(){
 
 };
 
+function showContainer(){
+
+    hidePoints()
+    
+    container
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+}
+
+function showPoints(){
+
+    showContainer()
+
+    // transition points
+    container.selectAll('circle')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .attr('cy', data => yScale(data.pct))
+        .delay(data => 0.5 * delayScale(data.week));
+
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week')
+};
+
 function toMean(){
 
     // shift to mean
@@ -183,26 +214,41 @@ function toMean(){
         .attr('fill-opacity', '1')
         .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
 
-    
-    container.selectAll('.line')
-        .transition()
-        .duration(500)
-        .attr('stroke-opacity', 0)
+        setTimeout(
+            function(){
+                container.selectAll('.line')
+                    .transition()
+                    .duration(1000)
+                    .attr('stroke-opacity', 0)
+                },
+            1000
+        );
 }
 
 function showLines(){
 
     container.selectAll('.line')
-                .transition()
-                .duration(2000)
-                .attr('stroke-opacity', 1)
+        .transition()
+        .duration(2000)
+        .attr('stroke-opacity', 1)
+        // .delay(data => delayScale(data.week));
 
     setTimeout(
         function(){
             container.selectAll('circle')
                 .transition()
                 .duration(1000)
-                .attr('opacity', 0)},
+                .attr('opacity', 0)
+            },
             1000
     );
+}
+
+function hideContainer(){
+    container
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+
+    hidePoints()
 }
