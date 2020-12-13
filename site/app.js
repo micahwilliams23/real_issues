@@ -3,34 +3,166 @@ const trump = d3.csv('trump_averages.csv', function(x){
         network: x.network,
         week: +x.week,
         pct: +x.pct,
-        rm: +x.rm
+        rm: +x.rm,
+        n: +x.n
     };
 })
 
 // set the dimensions and margins of the graph
-var margin = {top: 50, right: 30, bottom: 30, left: 45},
+var margin = {top: 50, right: 30, bottom: 0, left: 45},
 width = window.innerWidth * 0.65 - margin.left - margin.right,
 height = window.innerHeight - margin.top - margin.bottom;
+    
+function hidePoints(){
 
+    // transition points
+    container.selectAll('circle')
+        .transition()
+        .duration(500)
+        .attr('cy', data => yScale(data.pct) + 500)
+        .attr('opacity', 0)
+        .delay(data => delayScale(data.week));
 
-function showSplash(){
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
 
-    d3.select('#splash-page')
+    container.selectAll('.line')
+            .transition()
+            .duration(500)
+            .attr('stroke-opacity', 0)
+
+};
+
+function showContainer(){
+
+    hidePoints()
+    
+    container
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+}
+
+function showPoints(){
+
+    showContainer()
+
+    // transition points
+    container.selectAll('circle')
+        .transition()
+        // .ease(d3.easeElastic)
+        .duration(500)
+        .attr('opacity', 1)
+        .attr('cy', data => yScale(data.pct))
+        .delay(data => 0.5 * delayScale(data.week));
+
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week')
+};
+
+function toMean(){
+
+    // shift to mean
+    container.selectAll('circle')
+        .transition()
+        .ease(d3.easeBounce)
+        .duration(600)
+        .attr('opacity', 1)
+        .attr('cy', data => yScale(data.rm))
+        .delay(data => delayScale(data.week));
+
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
+
+        setTimeout(
+            function(){
+                container.selectAll('.line')
+                    .transition()
+                    .duration(1000)
+                    .attr('stroke-opacity', 0)
+                },
+            1000
+        );
+}
+
+function showLines(){
+
+    container.selectAll('.line')
+        .transition()
+        .duration(2000)
+        .attr('stroke-opacity', 1)
+        // .delay(data => delayScale(data.week));
+
+    setTimeout(
+        function(){
+            container.selectAll('circle')
+                .transition()
+                .duration(1000)
+                .attr('opacity', 0)
+            },
+            1000
+    );
+}
+
+function hideContainer(){
+    container
         .transition()
         .duration(500)
         .attr('opacity', 0)
 
-        setTimeout(function(x){
-            d3.select('#splash-page')
-                .transition()
-                .duration(1000)
-                .attr('opacity', 0)
-                .attr('height', '10vh');
+    hidePoints()
+}
 
-            console.log('function fired')
-        },
-        1500)
-    };
+// add tooltip to show info on mouseover
+var tooltip = d3.select('#svg-div')
+    .append('div')
+    .attr('opacity', 0)
+    .attr('class', 'tooltip')
+
+// define functions for mouseover
+function mouseover(d){
+
+    // enlarge point
+    d3.select(this)
+        .transition()  
+        .duration(50)
+        .attr('r', 7);
+
+    // show tooltip
+    tooltip
+        .transition()
+        .duration(50)
+        .attr('opacity', 1)
+        .attr('top', '0px')
+        .attr('left', '0px')
+        // .attr('top', (d3.mouse(this)[1]) + 'px')
+        // .attr('left', (d3.mouse(this)[0] + 90) + 'px')
+        .html('Network: ' + d.network + '<br>Trump mentions: ' + d.n)
+}
+
+function mouseleave(){
+    d3.select(this)
+        .transition()
+        .duration(50)
+        .attr('r', 3);
+
+    tooltip
+        .transition()
+        .duration(50)
+        .attr('opacity', 0)
+}
 
 const xTicks = [2016, 2017, 2018, 2019, 2020, 2021];
 const xScale = d3.scaleLinear()
@@ -111,7 +243,9 @@ trump.then(function(d){
         .attr('cy', data => yScale(data.pct) + 500)
         .attr('cx', data => margin.left + xScale(data.week))
         .attr('opacity', 0)
-        .attr('fill', data => colorScale(data.network)); 
+        .attr('fill', data => colorScale(data.network))
+        .on('mouseover', mouseover)
+        .on('mouseleave', mouseleave); 
     
     // nest data
     var nested_d = d3.nest()
@@ -142,113 +276,3 @@ trump.then(function(d){
             (d.values)
         });
 })
-
-function hidePoints(){
-
-    // transition points
-    container.selectAll('circle')
-        .transition()
-        .duration(500)
-        .attr('cy', data => yScale(data.pct) + 500)
-        .attr('opacity', 0)
-        .delay(data => delayScale(data.week));
-
-    container.select('#plot-title')
-        .transition()
-        .duration(500)
-        .attr('fill-opacity', '0')
-
-    container.selectAll('.line')
-            .transition()
-            .duration(500)
-            .attr('stroke-opacity', 0)
-
-};
-
-function showContainer(){
-
-    hidePoints()
-    
-    container
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-}
-
-function showPoints(){
-
-    showContainer()
-
-    // transition points
-    container.selectAll('circle')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-        .attr('cy', data => yScale(data.pct))
-        .delay(data => 0.5 * delayScale(data.week));
-
-    container.select('#plot-title')
-        .transition()
-        .duration(500)
-        .attr('fill-opacity', '0')
-        .transition()
-        .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week')
-};
-
-function toMean(){
-
-    // shift to mean
-    container.selectAll('circle')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-        .attr('cy', data => yScale(data.rm))
-        .delay(data => delayScale(data.week));
-
-    container.select('#plot-title')
-        .transition()
-        .duration(500)
-        .attr('fill-opacity', '0')
-        .transition()
-        .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
-
-        setTimeout(
-            function(){
-                container.selectAll('.line')
-                    .transition()
-                    .duration(1000)
-                    .attr('stroke-opacity', 0)
-                },
-            1000
-        );
-}
-
-function showLines(){
-
-    container.selectAll('.line')
-        .transition()
-        .duration(2000)
-        .attr('stroke-opacity', 1)
-        // .delay(data => delayScale(data.week));
-
-    setTimeout(
-        function(){
-            container.selectAll('circle')
-                .transition()
-                .duration(1000)
-                .attr('opacity', 0)
-            },
-            1000
-    );
-}
-
-function hideContainer(){
-    container
-        .transition()
-        .duration(500)
-        .attr('opacity', 0)
-
-    hidePoints()
-}
