@@ -1,0 +1,115 @@
+---
+title: "Fox News"
+author: "Micah Williams"
+date: "12/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.width = 10,
+                      fig.height = 7)
+
+library(tidyverse)
+library(tidytext)
+library(RColorBrewer)
+library(lubridate)
+library(extrafont)
+
+theme_set(
+  theme_minimal() +
+    theme(
+      legend.background = element_rect(fill = '#222222',
+                                       color = NA_character_),
+      plot.background = element_rect(fill = '#222222'),
+      text = element_text(color = '#fafafa',
+                          family = 'Gadugi'),
+      axis.text = element_text(color = '#fafafa'),
+      axis.text.y = element_text(size = rel(1.3),
+                                 hjust = 1),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.major.y = element_blank()
+    )
+)
+```
+
+```{r import}
+data(stop_words)
+
+fox <- read_csv('data/foxnews.csv') %>% 
+  arrange(desc(date)) %>%
+  mutate(id = paste0('F', row_number()))
+```
+
+```{r tidytext}
+
+palette = c(brewer.pal(5, 'Set1'),
+                       '#dddddd')
+
+tidy_fox <- fox %>%
+  unnest_tokens(word, 'title') %>%
+  anti_join(stop_words, by = 'word') %>%
+  select(-link) %>%
+  mutate(date = as.Date(date),
+         word = str_replace(word, '^(\\w+)(\\Ws)*$', '\\1'))
+
+fox.t <- tidy_fox %>% 
+  filter(!word %in% c('gutfeld',
+                      'laura',
+                      'ingraham',
+                      'hannity',
+                      '2020',
+                      'sen',
+                      'rep')) %>%
+  group_by(word, show) %>% 
+  summarize(n = n(),
+            .groups = 'drop') %>%
+  arrange(desc(n))
+
+word.order <- fox.t %>%
+  group_by(word) %>%
+  summarize(n = sum(n),
+            .groups = 'drop') %>%
+  arrange(desc(n)) %>%
+  slice(20:1)
+
+top.shows <- fox.t %>% 
+  group_by(show) %>% 
+  summarize(n = sum(n), .groups = 'drop') %>%
+  arrange(desc(n)) %>%
+  slice(1:5) %>% 
+  pull(show)
+
+fox.t %>%
+  filter(word %in% word.order$word) %>%
+  mutate(word = factor(word, levels = word.order$word),
+         show.f = if_else(show %in% top.shows,
+                          show,
+                          'Other Programs'),
+         show.f = factor(show.f, levels = c(top.shows, 'Other Programs'))) %>%
+  
+  ggplot() +
+  geom_col(aes(word, n, fill = show.f)) +
+  
+  geom_text(aes(word, n + 50, label = prettyNum(n,
+                                                 big.mark = ',')),
+            color = '#fafafa',
+            data = word.order) +
+  
+  labs(title = 'Word Frequency in 5,237 Fox News Transcript Titles',
+       subtitle = 'Includes transcripts from August 2015 until December 2020.',
+       x = '',
+       y = 'Word Frequency',
+       caption = 'Source: transcripts from foxnews.com. Common words and the following were filtered out of the results: gutfeld, laura, ingraham, hannity, 2020, sen, rep') +
+  
+  scale_fill_manual(values = palette,
+                    name = '') +
+  
+  scale_x_reordered() +
+  coord_flip() +
+  theme(legend.position = c(0.72, 0.5))
+
+# ggsave('images/fox_freq.png', width=10, height=7, dpi='retina') 
+```
+
+

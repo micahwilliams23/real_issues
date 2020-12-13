@@ -10,43 +10,82 @@
 
 html {
     overflow-x: hidden;
+    overflow-y: hidden;
     background-color: #111;
-}
+ }
+
 div {
+    font-family: Georgia, 'Times New Roman', Times, serif;
     background-color: #111;
     align-content: center;
 }
 
-h2 {
-    padding-top: 10px;
+#splash-page {
+    height: 100vh;
+    width: 100vw;
+}
+
+.landing {
+    position: relative;
+    height: 10vh;
+    top: 40%;
+    color: white;
+    text-align: center;
     color: white;
 }
 
-svg {
+h2 {
+    padding-top: 10px;
+}
+
+#svg-div {
     display: block;
+    padding: auto;
+}
+
+svg {
+    display: flex;
     margin: auto;
+    top: 25px;
+    position:relative;
+}
+
+.buttons {
     position: fixed;
+    bottom: 0;
+    right: 0;
 }
 
 .scrollbox {
     display: block;
-    position:fixed;
 
     right: 0;
-    width: 35%;
     height: 100vh;
-
+    padding-right: 0px;
+    margin-right: 0px;
     text-align: center;
     overflow-y: scroll;
 }
 
-.scrollbox section{
-    display: flex;
+.section {
     align-items: center;
-    justify-content: center;
-    height: 100%;
+    min-height: 130%;
     color: white;
-    font-size: 30px;
+    margin-left: 25px;
+    margin-top: 45vh;
+}
+
+.section-contents p {
+    margin-top: 100px;
+    text-align: left;
+    text-justify: newspaper;
+    font-family: helvetica, sans-serif;
+    font-size: 20px;
+}
+
+.section-contents a {
+    text-decoration: none;
+    color: #d1d1f1;
 }
 
 g{

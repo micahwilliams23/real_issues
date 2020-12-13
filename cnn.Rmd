@@ -14,17 +14,27 @@ library(tidyverse)
 library(lubridate)
 library(tidytext)
 library(RColorBrewer)
-
+library(zoo)
 library(extrafont)
+
+theme_set(
+  theme_minimal() +
+    theme(
+      legend.background = element_rect(fill = '#222222',
+                                       color = NA_character_),
+      plot.background = element_rect(fill = '#222222'),
+      text = element_text(color = '#fafafa',
+                          family = 'Gadugi'),
+      axis.text = element_text(color = '#fafafa'),
+      axis.text.y = element_text(size = rel(1.3),
+                                 hjust = 1)
+    )
+)
 ```
 
-```{r import}
-cnn <- read_csv('data/cnn_links_b.csv') %>% mutate(id = row_number())
-
-nrow(cnn)
-
-link_list <- cnn[1:100, 'href']
-write_csv(link_list, 'data/link_test.csv')
+```{r import, eval=F, include=F}
+cnn <- read_csv('data/titles_b.csv') %>%
+  mutate(id = paste0('C', row_number()))
 
 show_c <- tibble(show = unique(cnn$show)) %>%
   mutate(show = if_else(str_starts(show, 'Anderson'),
@@ -37,14 +47,14 @@ cnn.grp <- cnn %>%
          show = if_else(str_starts(show, 'Anderson'),
                         'Anderson Cooper 360',
                         show)) %>%
-  filter(!id %in% c(13689, 54523)) %>%
+  filter(!id %in% c('C13689', 'C54523')) %>%
   left_join(show_c, by = 'show') %>%
   group_by(show_abbrev)
 
 by(cnn.grp, cnn.grp$show_abbrev, function(i){write_csv(i, paste0('data/shows/',i$show_c[1],'.csv'))})
 ```
 
-```{r}
+```{r clean}
 titles <- read_csv('data/titles_b.csv')
 
 getDate <- function(str){
@@ -64,61 +74,70 @@ titles.clean <- titles %>%
   filter(complete.cases(.)) %>% 
   distinct() %>%
   mutate(date = getDate(aired),
-         id = row_number(),
+         id = paste0('C', row_number()),
          topics = map(title, ~splitTitle(.))) %>%
   unnest(topics) %>%
   select(id, show, date, topics) %>%
   arrange(desc(date))
 
 # manually change dates where typo
-titles.clean[titles.clean$id == 1,'date'] <- mdy('September 12, 2017') # September 12, 2107
-titles.clean[titles.clean$id == 2067,'date'] <- mdy('February 5, 2018') # February 5, 20189
-titles.clean[titles.clean$id == 45333,'date'] <- mdy('June 15, 2020') # May 10, 1997June 15, 2020
+titles.clean[titles.clean$id == 'C1','date'] <- mdy('September 12, 2017') # September 12, 2107
+titles.clean[titles.clean$id == 'C2067','date'] <- mdy('February 5, 2018') # February 5, 20189
+titles.clean[titles.clean$id == 'C45333','date'] <- mdy('June 15, 2020') # May 10, 1997June 15, 2020
 
 # remove rows with missing data
-titles.clean <- titles.clean %>% filter(complete.cases(.), id != 22766)
+titles.clean <- titles.clean %>% filter(complete.cases(.), id != 'C22766')
 
 glimpse(titles.clean)
 ```
 
 ```{r tidytext, fig.height = 7, fig.width=10}
 data(stop_words)
+data(sentiments)
 
 fixShow <- function(str){
   str_replace(str_to_title(str), 'Cnn', 'CNN')
 }
 
 tidy_cnn <- titles.clean %>%
-  unnest_tokens(word, topics)
+  unnest_tokens(word, topics) %>%
+  mutate(word = str_replace(word, '^(\\w+)(\\Ws)*$', '\\1'))
 
 top_words <- tidy_cnn %>% 
+  filter(!word %in% c('rep',
+                      'senator')) %>%
   anti_join(stop_words, by = 'word') %>%
   group_by(word, show) %>% 
   summarize(n = n(),
             .groups = 'drop') %>%
-  arrange(desc(n))
+  arrange(desc(n)) %>%
+  mutate(show = fixShow(show))
 
 word.order <- top_words %>%
   group_by(word) %>%
   summarize(n = sum(n),
             .groups = 'drop') %>%
-  arrange(desc(n))
+  arrange(desc(n)) %>%
+  slice(20:1)
+
+top.shows <- top_words %>%
+  group_by(show) %>%
+  summarize(n = sum(n),
+            .groups = 'drop') %>%
+  arrange(desc(n)) %>%
+  slice(1:5) %>%
+  pull(show)
 
 top_words <- top_words %>%
-  mutate(fct = factor(word, levels = pull(word.order, word)),
-         show = fixShow(show),
-         fill = case_when(str_starts(show, 'Anders') ~ show,
-                                str_starts(show, 'The Situation Room') ~ show,
-                                str_starts(show, 'CNN News') ~ show,
-                                str_starts(show, 'The Lead With') ~ show,
-                                str_starts(show, 'CNN Live') ~ show,
-                                TRUE ~ 'Other Programs'
-                                ),
-         fill = factor(fill, levels = unique(fill)[c(1:4,6,5)])) %>%
-  filter(fct %in% levels(fct)[1:20])
+  filter(word %in% word.order$word) %>%
+  mutate(word = factor(word, levels = word.order$word),
+         fill = if_else(show %in% top.shows,
+                        show,
+                        'Other Programs'),
+         fill = factor(fill, levels = c(top.shows, 'Other Programs')))
 
 totals <- top_words %>% 
-              group_by(fct) %>% 
+              group_by(word) %>% 
               summarize(n = sum(n), .groups = 'drop')
 
 palette = c(brewer.pal(5, 'Set1'),
@@ -127,17 +146,17 @@ palette = c(brewer.pal(5, 'Set1'),
 top_words %>%
   
   ggplot(.) +
-  geom_col(aes(reorder(fct, n),
+  geom_col(aes(word,
                n, 
                fill = fill)) +
   
-  geom_text(aes(fct, n + 300, label = prettyNum(n,
+  geom_text(aes(word, n + 300, label = prettyNum(n,
                                                 big.mark = ',')),
             hjust = 0,
             color = '#fafafa',
             data = totals) +
   
-  labs(title = 'Word Frequency in CNN Broadcast Trancript Titles',
+  labs(title = 'Word Frequency in 143,427 CNN Broadcast Trancript Titles',
        subtitle = 'Includes program titles from 39 shows from September 2002 until December 2020.\nAround 75% of programming in dataset was aired after Jan 1, 2016.',
        y = 'Word Frequency',
        x = '',
@@ -145,59 +164,387 @@ top_words %>%
   
   scale_fill_manual(values = palette,
                     name = '') +
-  scale_y_continuous(limits = c(0,27000),
+  scale_y_continuous(limits = c(0,30000),
                      breaks = c(0:2) * 10^4,
                      labels = prettyNum(c(0:2*10^4),
                                         big.mark = ',')) +
   
-  theme_minimal() +
   theme(legend.position = c(0.86, 0.5),
-        legend.background = element_rect(fill = '#222222',
-                                         color= NA_character_),
-        plot.background = element_rect(fill = '#222222'),
-        text = element_text(color = '#fafafa',
-                            family = 'Gadugi'),
-        axis.text = element_text(color = '#fafafa'),
-        axis.text.y = element_text(size = rel(1.3),
-                                   hjust = 1),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.major.y = element_blank()) +
-  
+      panel.grid.minor.x = element_blank(),
+      panel.grid.major.y = element_blank()) +
   coord_flip()
 
-ggsave('images/cnn_freq.png', width = 10, height = 7, dpi = 'retina')
+# ggsave('images/cnn_freq.png', width = 10, height = 7, dpi = 'retina')
 ```
 
-```{r}
-query = c('climate', 'poverty', 'homeless')
+```{r query}
+query = c('climate', 'poverty', 'homeless', 'terrorism', 'riot', 'hunger', 'hungry', 'protest')
 
-tidy_cnn %>% 
+fixQtr <- function(qtr){
+  e = str_extract(qtr, '\\d$')
+  fix <- case_when(e == '1' ~ '.125',
+                   e == '2' ~ '.375',
+                   e == '3' ~ '.625',
+                   e == '4' ~ '.875')
+  as.numeric(paste0(str_extract(qtr, '^\\d{4}'), fix))
+}
+
+query_words <- tidy_cnn %>% 
   filter(word %in% query,
          date >= as.Date('2009-01-01')) %>%
-  mutate(qtr = quarter(date, with_year = TRUE)) %>%
+  mutate(qtr = quarter(date, with_year = TRUE),
+         word = case_when(word %in% c('hunger', 'hungry') ~ 'hunger + hungry',
+                          word %in% c('poverty', 'homeless') ~ 'poverty + homeless',
+                          word %in% c('riot', 'protest') ~ 'riot + protest',
+                          TRUE ~ word)) %>%
   group_by(word, qtr) %>%
   summarize(n = n(),
             .groups = 'drop') %>%
-  arrange(desc(n)) %>%
+  arrange(qtr) %>%
+  mutate(qtr = fixQtr(qtr))
+
+query_totals <- query_words %>%
+  group_by(word) %>%
+  nest() %>%
+  mutate(qtr = map_dbl(data, ~max(.$qtr)),
+         label = map_dbl(data, ~ sum(.$n)),
+         n = map_dbl(data, ~ last(loess(n ~ qtr, data = .)$fitted)))
+
+query_words %>%
   
   ggplot() +
-  geom_smooth(aes(qtr, n, color = word), se = F) +
+  geom_smooth(aes(qtr, n, color = word), 
+              se = F,
+              size = 1.2) +
   
-  labs(title = 'Word Frequency of Climate, Poverty, Homeless in CNN Broadcast Transcript Titles',
-       x = 'Year',
-       y = 'Frequency') +
+  geom_point(aes(qtr, n, color = word),
+             size = 10,
+             pch = 21,
+             fill = '#222222',
+             color = '#222222',
+             show.legend = F,
+             data = query_totals) +
+  geom_text(aes(qtr, n, color = word, label = label),
+            size = 5,
+            show.legend = F,
+            # hjust = 0,
+            data = query_totals) +
   
-  scale_x_continuous(breaks = seq(2008, 2020, 2)) +
+  labs(title = 'Word Frequency in 143,427 CNN Broadcast Transcript Titles, Jan 1, 2009 - Dec. 6, 2020',
+       subtitle = 'Numbers show total mentions. Over the same time period, CNN programs contained the word \'trump\' over 28,600 times.',
+       x = '',
+       y = 'Frequency per Quarter',
+       color = '') +
   
-  theme_minimal() +
-  theme(legend.position = c(0.86, 0.5),
-        legend.background = element_rect(fill = '#222222'),
-        plot.background = element_rect(fill = '#222222'),
-        text = element_text(color = '#fafafa',
-                            family = 'Gadugi'),
-        axis.text = element_text(color = '#fafafa',
-                                 size = rel(1.3)),
+  scale_x_continuous(breaks = c(2010:2020),
+                     labels = c('2010',
+                                paste0('\'', c(11:19)),
+                                '2020')) +
+  
+  scale_color_brewer(palette = 'Set1') +
+  
+  guides(color = guide_legend(override.aes = c(pch = NA_integer_))) +
+
+  theme(panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
-        panel.grid.minor.y = element_blank())
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(0.5, 0.68),
+        legend.background = element_blank())
+
+# ggsave('images/cnn_timefreq.png', width=10, height=7, dpi='retina')
+```
+
+```{r sentiment, message=F}
+nrc <- readxl::read_excel('data/nrc_lexicon.xlsx', na = c(NA, '0')) %>%
+  select('word' = 1, where(~ is.numeric(.))) %>%
+  janitor::clean_names() %>%
+  
+  # pivot to tidy format
+  pivot_longer(c(positive:trust),
+               values_to = 'temp',
+               names_to = 'emotion') %>%
+  filter(temp != 0) %>%
+  select(-temp) %>%
+  
+  # extract emotion for each word
+  group_by(word) %>%
+  mutate(e = list(emotion),
+         sentiment = case_when('positive' %in% e[[1]] ~ 'positive',
+                               'negative' %in% e[[1]] ~ 'negative',
+                               TRUE ~ NA_character_)) %>%
+  filter(!emotion %in% c('positive', 'negative')) %>%
+  select(word, sentiment, emotion) %>%
+  ungroup()
+
+# find ids of rows containing 'trump' or 'Trump'
+trump_ids <- tidy_cnn %>% filter(date >= as.Date('2009-01-01'), word == 'trump') %>% pull(id)
+
+sentiments[sentiments$word == 'trump','sentiment'] <- NA_character_
+sentiments <- rbind(sentiments,
+                    tibble(word = c('superspreader',
+                                    'covid',
+                                    'coronavirus'),
+                           sentiment = 'negative'))
+
+# find episode topics of above
+trump_titles <- titles.clean %>% 
+  filter(id %in% trump_ids, str_detect(topics, '[Tt]rump')) %>% 
+  arrange(desc(date)) %>%
+  unique() %>%
+  unnest_tokens(word, topics) %>%
+  mutate(word = str_replace(word, '^(\\w+)(\\Ws)*$', '\\1')) %>%
+  anti_join(stop_words, by = 'word') %>%
+  left_join(sentiments, by = 'word')
+
+glimpse(trump_titles)
+
+trump_sentiment <- trump_titles %>%
+  mutate(sent_score = case_when(sentiment == 'positive' ~ 1,
+                                sentiment == 'negative' ~ -1,
+                                TRUE ~ 0)) %>%
+  group_by(id) %>% 
+  summarize(avg_sent = mean(sent_score),
+            .groups = 'drop') %>%
+  arrange(avg_sent) %>% 
+  left_join(titles.clean, by = 'id') %>%
+  select(avg_sent, date, topics, everything())
+```
+
+```{r foxvcnn, fig.width = 10,fig.height=5}
+getWeek <- function(date){
+  round(week(date) / 52 + year(date), 3)
+}
+
+week_totals_cnn <- titles.clean %>%
+  mutate(week = getWeek(date)) %>%
+  group_by(week) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(network = 'CNN')
+
+week_totals_fox <- fox %>%
+  mutate(week = getWeek(date)) %>%
+  group_by(week) %>%
+  count() %>%
+  ungroup() %>%
+  mutate(network = 'Fox News')
+
+week_totals <- bind_rows(week_totals_cnn,
+                        week_totals_fox) %>%
+  select(week, network, t = n)
+
+
+# combine fox and cnn titles
+trump <- rbind(tidy_cnn, tidy_fox) %>%
+  
+  # add week and network names
+  mutate(week = getWeek(date),
+         network = factor(if_else(str_starts(id, 'C'),
+                           'CNN',
+                           'Fox News'))) %>%
+  filter(word == 'trump')
+
+trump_pct <- trump %>%
+  
+  group_by(network, week) %>%
+  filter(week >= 2015.692, word == 'trump') %>% 
+  count() %>%
+  
+  # determine % of broadcasts that mention trump
+  left_join(week_totals,
+            by = c('week', 'network')) %>%
+  mutate(pct = n / t) %>%
+  
+  # regroup by network and nest
+  group_by(network) %>%
+  nest() %>%
+  
+  mutate(rm = map(data, ~zoo::rollmean(.$pct, 4, fill = NA)),
+         week = map(data, ~.$week))
+
+trump_pct %>% 
+  select(-data) %>% 
+  unnest(c(rm, week)) %>% 
+  arrange(week, network) %>%
+  
+  filter(!is.na(rm)) %>% 
+  
+  ggplot() +
+  geom_line(aes(week, rm, color = network),
+            size = 1.3,
+            alpha = 0.75) +
+  
+  labs(title = 'Trump TV: Percent of Program Titles Containing \'trump\' per week, 4-Week Rolling Average by Network',
+       subtitle = 'Correlation: rolling means: 0.5038, weekly data: 0.4548',
+       x = '',
+       y = '',#'Titles Containing \'trump\'',
+       color = 'Network',
+       caption = 'Source: scraped data from foxnews.com and cnn.com') +
+  
+  scale_y_continuous(breaks = c(1:5)*0.1,
+                     labels = paste0(c(1:5)*10, '%')) +
+  scale_color_brewer(palette = 'Set1',
+                     direction = -1) +
+  
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_line(linetype = 3),
+        panel.grid.major.y = element_line(linetype = 3),
+        axis.text.x = element_text(size = rel(1.5)),
+        axis.title.y = element_text(size = rel(1.3)),
+        legend.position = c(0.7, 0.81),
+        legend.background = element_blank())
+
+# ggsave('images/trumpnetworks.png', width=10, height=5, dpi='retina')
+```
+
+```{r trump_week, fig.height=5, fig.width=15}
+
+top_trump_week <- trump %>%
+  filter(week == 2020.769) %>% 
+  pull(id)
+
+trumplines <- titles.clean %>%
+  filter(id %in% top_trump_week, str_detect(topics, '[Tt]rump')) %>%
+  select(date, topics) %>%
+  mutate(t = row_number(),
+         word = map(topics, ~ str_to_lower(str_split(., ' ')[[1]])),
+         end = map(word, ~ c(1:length(.))),
+         weight = map_dbl(word, ~ length(.))) %>%
+  select(-topics) %>%
+  unnest(c(word, end)) %>%
+  mutate(start = (end - 1) / weight,
+         end = end / weight) %>%
+  left_join(sentiments, by = 'word')
+
+sent_scores <- trumplines %>% 
+  
+  mutate(sent_score = case_when(sentiment == 'positive' ~ 1,
+                                sentiment == 'negative' ~ -1,
+                                TRUE ~ 0)) %>%
+  group_by(t) %>%
+  summarize(avg_sent = mean(sent_score),
+            .groups = 'drop')
+
+trumplines %>%
+  
+  left_join(sent_scores, by = 't') %>%
+  arrange(desc(avg_sent)) %>%
+  filter(avg_sent != 0) %>%
+  
+  group_by(t) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(r = row_number()) %>%
+  unnest(data) %>%
+  
+  ggplot() +
+  geom_tile(aes(x = (start + end) / 2, y = r,
+                width = end - start, height = 1,
+                fill = sentiment)) +
+  
+  # geom_text(aes(x = (start + end) / 2, y = t - 0.5, label = word),
+  #           family = 'Lucida Console') +
+  
+  scale_fill_manual(values = c('#ff0000',
+                               '#00ff00'),
+                    na.value = '#aaaaaa4d') +
+  
+  # theme_void() +
+  theme(legend.position = 'none') + 
+  coord_flip()
+```
+
+```{r sentiment_plot, fig.height=0.5, fig.width=15}
+# 194 on above plot
+string <- 'Trump Peddles Baseless Fraud Conspiracy as Early Voting Surges'
+tibble(word = str_to_lower(str_split(string, ' ')[[1]])) %>%
+  mutate(len = str_length(word),
+         end = cumsum(len),
+         start = end - len) %>%
+  left_join(sentiments, by = 'word') %>%
+  
+  ggplot() +
+  geom_tile(aes(x = (start + end) / 2, y = 0.5,
+                width = len, height = 1,
+                fill = sentiment)) +
+  
+  geom_text(aes(x = (start + end) / 2, y = 0.5, label = word),
+            family = 'Lucida Console') +
+  
+  scale_fill_manual(values = c('#ff0000',
+                               '#00ff00'),
+                    na.translate = F) +
+  
+  theme_void() +
+  theme(legend.position = 'none')
+
+```
+```{r}
+cnn_hist
+ggsave('images/cnn_hist.png', height=5, width=7, dpi='retina')
+```
+
+```{r word_pairs, eval = F}
+library(parallel)
+
+titles <- rbind(
+  tibble(title = fox$title, network = 'Fox News'),
+  tibble(title = titles.clean$topics, network = 'CNN')) %>%
+  
+  mutate_at(vars(title),
+            function(x){
+              str_replace_all(
+                str_to_lower(x),
+                '[^\\w \']|\'s')
+            })
+
+climate <- titles %>% filter(str_detect(title, 'climate')) 
+
+m <- matrix(NA)
+colnames(m) <- 'na'
+rownames(m) <- 'na'
+
+wordPairs <- function(strings){
+  
+  unique(str_split(cat(strings, collapse = ' '), ' ')[1])
+  
+  # iterate through every string
+  for(string in strings){
+    
+    # split string into words
+    words.all <- str_split(string, ' ')[[1]]
+    words <- words.all[!words.all %in% stop_words$word]
+    
+    # if any of the words in the string are missing from matrx
+    if(length(words[!words %in%colnames(m)]) != 0){
+      
+      # list of missing words to add
+      missing.words <- words[!words %in% colnames(m)]
+      
+      # current column and rownames
+      cn <- colnames(m)
+      rn <- rownames(m)
+      
+      for(i in 1:length(missing.words)){
+        m <- cbind(m, rep(0, nrow(m)))
+        m <- rbind(m, rep(0, ncol(m)))
+      }
+      colnames(m) <- c(cn, missing.words)
+      rownames(m) <- c(rn, missing.words)
+    }
+    
+    # add one to tally of every word pair
+    for(word.i in words){
+      for(word.j in words){
+        m[word.i, word.j] <- m[word.i, word.j] + 1
+      }
+    }
+  }
+  
+  # return new matrix
+  m
+}
+
+title_pairs <- wordPairs(titles)
 ```
 
