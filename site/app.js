@@ -58,8 +58,8 @@ function deleteSplash(){
                 return remain;
             })
 
-        // make entire function call last 1 second 
-        }, 1000 / d.length * i);
+        // make entire function call last half a second 
+        }, 500 / d.length * i);
     }
 
     // repeat for subtext
@@ -71,14 +71,14 @@ function deleteSplash(){
                 var remain = e.join('')
                 return remain;
             })
-        }, 1000 / e.length * i);
+        }, 500 / e.length * i);
     }
 
     // remove splash element
     setTimeout(function(){
             d3.select('#splash-page')
             .remove()
-    }, 1000);
+    }, 500);
 }
 
 var splash = true;
@@ -93,19 +93,19 @@ function showContainer(){
         .transition()
         .duration(0)
         .attr('opacity', 1)
-        .delay(1000);
+        .delay(500);
 
     container.selectAll('.yaxis2')
         .transition()
         .duration(0)
         .attr('opacity', 0)
-        .delay(1000);
+        .delay(500);
 
     container
         .transition()
         .duration(500)
         .attr('opacity', 1)
-        .delay(1500)
+        .delay(500)
 
     splash = false;
 };
@@ -174,6 +174,14 @@ function showLines1(){
         .duration(500)
         .attr('opacity', 0);
 
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
+
     // change y grid
     container.selectAll('.ygrid')
         .transition()
@@ -195,23 +203,48 @@ function showLines1(){
 
 function showLines2(){
 
-    showContainer()
+    container.selectAll('.line1')
+        .transition()
+        .duration(500)
+        .attr('stroke-opacity', 0);
 
     svgbase
         .transition()
         .duration(500)
         .attr('opacity', 1);
 
-    container.selectAll('.line1')
-        .transition()
-        .duration(500)
-        .attr('stroke-opacity', 0);
-
     container.selectAll('.yaxis1')
         .transition()
         .duration(500)
         .attr('opacity', 0);
 
+    container.selectAll('.yaxis2')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+
+    // change y grid
+    container.selectAll('.ygrid')
+        .transition()
+        .duration(500)
+        .attr('y1', d => yScale2(d * 1000))
+        .attr('y2', d => yScale2(d * 1000))
+    
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Number of CNN and Fox News Titles Containing \'Trump\' by week')
+    
+    container.selectAll('.line2')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .attr('fill-opacity', 0.5)
+        .delay(500);
+        
     container.selectAll('.totalCircles')
         .transition()
         .duration(500)
@@ -222,25 +255,6 @@ function showLines2(){
         .duration(500)
         .attr('opacity', 0)
 
-    container.select('#plot-title')
-        .transition()
-        .duration(500)
-        .attr('fill-opacity', '0')
-        .transition()
-        .attr('fill-opacity', '1')
-        .text('Total Number of CNN and Fox News Titles Containing \'Trump\' since Sep. 2015')
-    
-    container.selectAll('.line2')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-
-    container.selectAll('.line2')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
-        .attr('fill-opacity', 0.5)
-        .delay(500);
 };
 
 function hideContainer(){
@@ -287,6 +301,74 @@ function hideCircles(){
         .transition()
         .duration(500)
         .attr('r', data => 1);
+}
+
+function mouseover(d){
+
+    tooltip.select('rect')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+    tooltip.select('text')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+    tooltip
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+
+    d3.select(this)
+        .transition()
+        .duration(50)
+        .attr('r', 10);
+
+}
+
+function mousemove(d){
+
+    var pos = this.getBoundingClientRect();
+    const getX = function(pos){
+        var xShift = pos.x - window.innerWidth * 0.35;
+        return (xShift + 500 + margin.right) > width ? width - 500 + margin.left + margin.right : xShift;
+    };
+    const getY = function(pos){
+        return (pos.y + 150) > height ? 0 : pos.y;
+    };
+
+    var x = getX(pos);
+    var y = getY(pos);
+    const ptData = d3.select(this).data()[0]
+
+    const getText = function(d){
+        return d.network;
+    };
+
+    var newText = getText(ptData);
+
+    tooltip
+        .select('rect')
+        .attr('x', x + 'px')
+        .attr('y', y + 'px');
+    tooltip
+        .select('text')
+        .attr('x', x + 5 + 'px')
+        .attr('y', y + 15 + 'px')
+        .text(newText);
+
+}
+
+function mouseleave(d){
+
+    tooltip
+        .transition()
+        .duration(500)
+        .attr('opacity', 0);
+
+    d3.select(this)
+        .transition()
+        .duration(50)
+        .attr('r', 3);
 }
 
 function emptyFunction(){};
@@ -372,8 +454,9 @@ const yTicks = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
 const yScale = d3.scaleLinear()
     .domain([0, 0.6])
     .range([height, margin.top]);
+
 const yScale2 = d3.scaleLinear()
-    .domain([0, 30000])
+    .domain([0, 450]) //30000])
     .range([height, margin.top]);
 
 const colorScale = d3.scaleOrdinal()
@@ -394,12 +477,37 @@ const container = d3.select('svg')
     .attr('height', height + margin.top + margin.bottom);
 
 const svgbase = container.append('g')
-    .classed('svgbase', true)
+    .classed('svgbase', true);
+
+const svgdata = container.append('g')
+    .classed('svgdata', true);
+
+const tooltip = container.append('g')
+    .classed('tooltip', true)
+
+tooltip
+    .append('rect')
+    .attr('opacity', 0)
+    .attr('height', '100px')
+    .attr('width', '500px')
+    .attr('fill', 'white')
+    .attr('z-index', 200)
+    .attr('rx', '5px')
+
+tooltip
+    .append('text')
+    .attr('opacity', 0)
+    .attr('fill', 'black')
+    .attr('size', 15)
 
 // add y axis
 svgbase.append('g')
     .classed('yaxis1', true)
     .call(d3.axisLeft(yScale).ticks(5).tickFormat(d => d * 100 + '%'))
+    .attr('transform', 'translate('+ margin.left +',0)');
+svgbase.append('g')
+    .classed('yaxis2', true)
+    .call(d3.axisLeft(yScale2).ticks(5).tickFormat(d => d)) // 1000 + 'k'))
     .attr('transform', 'translate('+ margin.left +',0)');
 
 // add y grid
@@ -407,7 +515,7 @@ svgbase.selectAll('.ygrid')
     .data(yTicks)
     .enter()
     .append('line')
-    .classed('.ygrid', true)
+    .classed('ygrid', true)
     .attr('x1', margin.left)
     .attr('x2', window.innerWidth * 0.65)
     .attr('y1', d => yScale(d))
@@ -473,7 +581,7 @@ svgbase.selectAll('.legendText')
 trump_weeks.then(function(d){
 
     // add points
-    container.selectAll('.point')
+    svgdata.selectAll('.point')
         .data(d)
         .enter()
         .append('circle')
@@ -482,7 +590,10 @@ trump_weeks.then(function(d){
         .attr('cy', data => yScale(data.pct) + 500)
         .attr('cx', data => margin.left + xScale(data.week))
         .attr('opacity', 0)
-        .attr('fill', data => colorScale(data.network)); 
+        .attr('fill', data => colorScale(data.network))
+        .on('mouseover',mouseover) 
+        .on('mousemove',mousemove) 
+        .on('mouseleave',mouseleave); 
     
     // nest data
     var nested_d = d3.nest()
@@ -490,7 +601,7 @@ trump_weeks.then(function(d){
         .entries(d);
     
     // add first set of lines
-    container.selectAll('.line1')
+    svgdata.selectAll('.line1')
         .data(nested_d)
         .enter()
         .append('path')
@@ -507,7 +618,7 @@ trump_weeks.then(function(d){
         });
 
     // add second set of lines
-    container.selectAll('.line2')
+    svgdata.selectAll('.line2')
         .data(nested_d)
         .enter()
         .append('path')
@@ -519,17 +630,10 @@ trump_weeks.then(function(d){
         .attr('d', function(d){
             return d3.area()
             .x(d => margin.left + xScale(d.week))
-            .y1(d => yScale2(d.t))
+            .y1(d => yScale2(d.n))
             .y0(yScale2(0))
             (d.values)
         });
-
-    // add second y axis
-    svgbase.append('g')
-        .classed('yaxis2', true)
-        .call(d3.axisLeft(yScale2).ticks(5).tickFormat(d => d/1000 + 'k'))
-        .attr('transform', 'translate('+ margin.left +',0)')
-        .attr('opacity', 0);
     
     const xBands = d3.scaleBand()
         .domain(['CNN', 'Fox News'])
@@ -549,7 +653,7 @@ trump_weeks.then(function(d){
     ]
 
     // add network totals circles
-    container.append('g')
+    svgdata.append('g')
         .classed('totals', true)
         .selectAll('.totalCircles')
         .data(networkTotals)
@@ -570,7 +674,7 @@ trump_weeks.then(function(d){
         .attr('fill-opacity', data => data.f0)
         .attr('fill', data => colorScale(data.network)); 
 
-    container.select('.totals')
+    svgdata.select('.totals')
         .selectAll('.totalText')
         .data(networkTotals)
         .enter()
@@ -590,7 +694,7 @@ trump_weeks.then(function(d){
         })
         .text(data => data.value.toString().replace(/(\d{3})$/, ',$1'))
     
-    container.select('.totals')
+    svgdata.select('.totals')
         .selectAll('.totalLabels')
         .data(networkLabels)
         .enter()
@@ -606,7 +710,7 @@ trump_weeks.then(function(d){
         })
         .text(data => data.network)
         
-    container.select('.totals')
+    svgdata.select('.totals')
         .attr('opacity', 0)
 
 })
