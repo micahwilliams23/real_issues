@@ -6,3 +6,5 @@
 *.Rproj
 data/cnn_broken.csv
 data/cnn_links_b.csv
+
+site_backup
