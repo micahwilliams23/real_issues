@@ -100,6 +100,12 @@ function showContainer(){
         .duration(0)
         .attr('opacity', 0)
         .delay(500);
+    
+    container.selectAll('.yaxis3')
+        .transition()
+        .duration(0)
+        .attr('opacity', 0)
+        .delay(500);
 
     container
         .transition()
@@ -128,7 +134,7 @@ function showPoints(){
         .attr('fill-opacity', '0')
         .transition()
         .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'trump\' by week')
+        .text('Percent of CNN and Fox News Headlines Containing \'trump\' by week')
 };
 
 function toMean(){
@@ -148,7 +154,7 @@ function toMean(){
         .attr('fill-opacity', '0')
         .transition()
         .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
+        .text('CNN and Fox News Headlines Containing \'Trump\' by week, 4-Week Rolling Average')
     
     container.selectAll('.line1')
         .transition()
@@ -180,7 +186,7 @@ function showLines1(){
         .attr('fill-opacity', '0')
         .transition()
         .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Titles Containing \'Trump\' by week, 4-Week Rolling Average')
+        .text('CNN and Fox News Headlines Containing \'Trump\' by week, 4-Week Rolling Average')
 
     // change y grid
     container.selectAll('.ygrid')
@@ -207,6 +213,11 @@ function showLines2(){
         .transition()
         .duration(500)
         .attr('stroke-opacity', 0);
+        
+    container.selectAll('.yaxis3')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0);
 
     svgbase
         .transition()
@@ -221,7 +232,8 @@ function showLines2(){
     container.selectAll('.yaxis2')
         .transition()
         .duration(500)
-        .attr('opacity', 1);
+        .attr('opacity', 1)
+        .delay(500);
 
     // change y grid
     container.selectAll('.ygrid')
@@ -229,6 +241,17 @@ function showLines2(){
         .duration(500)
         .attr('y1', d => yScale2(d * 1000))
         .attr('y2', d => yScale2(d * 1000))
+
+    svgdata.selectAll('.line2')
+        .transition()
+        .duration(500)
+        .attr('d', function(d){
+            return d3.area()
+            .x(d => margin.left + xScale(d.week))
+            .y1(d => yScale2(d.n))
+            .y0(yScale2(0))
+            (d.values)
+        });
     
     container.select('#plot-title')
         .transition()
@@ -244,6 +267,56 @@ function showLines2(){
         .attr('opacity', 1)
         .attr('fill-opacity', 0.5)
         .delay(500);
+        
+    container.selectAll('.totalCircles')
+        .transition()
+        .duration(500)
+        .attr('r', 1)
+
+    container.selectAll('.totals')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+
+};
+
+function showLines3(){
+
+    svgbase
+        .transition()
+        .duration(500)
+        .attr('opacity', 1);
+
+    container.selectAll('.yaxis2')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0);
+
+    container.selectAll('.yaxis3')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .delay(500);
+
+    // change y grid
+    container.selectAll('.ygrid')
+        .transition()
+        .duration(500)
+        .attr('y1', d => yScale3(d * 50))
+        .attr('y2', d => yScale3(d * 50))
+ 
+    // rescale y values
+    svgdata.selectAll('.line2')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .attr('d', function(d){
+            return d3.area()
+            .x(d => margin.left + xScale(d.week))
+            .y1(d => yScale3(d.n))
+            .y0(yScale3(0))
+            (d.values)
+        });
         
     container.selectAll('.totalCircles')
         .transition()
@@ -406,7 +479,9 @@ dispatch.on('active', function(index){
         toMean,
         showLines1,
         showLines2,
+        showLines3,
         showCircles,
+        emptyFunction,
         hideCircles
     ]
 
@@ -456,7 +531,10 @@ const yScale = d3.scaleLinear()
     .range([height, margin.top]);
 
 const yScale2 = d3.scaleLinear()
-    .domain([0, 450]) //30000])
+    .domain([0, 450])
+    .range([height, margin.top]);
+const yScale3 = d3.scaleLinear()
+    .domain([0, 25])
     .range([height, margin.top]);
 
 const colorScale = d3.scaleOrdinal()
@@ -507,7 +585,11 @@ svgbase.append('g')
     .attr('transform', 'translate('+ margin.left +',0)');
 svgbase.append('g')
     .classed('yaxis2', true)
-    .call(d3.axisLeft(yScale2).ticks(5).tickFormat(d => d)) // 1000 + 'k'))
+    .call(d3.axisLeft(yScale2).ticks(5))
+    .attr('transform', 'translate('+ margin.left +',0)');
+svgbase.append('g')
+    .classed('yaxis3', true)
+    .call(d3.axisLeft(yScale3).ticks(5))
     .attr('transform', 'translate('+ margin.left +',0)');
 
 // add y grid
