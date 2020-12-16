@@ -9,7 +9,16 @@ const trump_weeks = d3.csv('data/trump_averages.csv', function(x){
         t: +x.t,
         date: Date(x.date)
     };
-})
+});
+
+const cnn_words = d3.csv('data/cnn_words.csv', function(x){
+    return {
+        id: x.id,
+        show: x.show,
+        date: Date(x.date),
+        word: x.word
+    };
+});
 
 // set the dimensions and margins of the graph
 var margin = {top: 50, right: 45, bottom: 30, left: 45},
@@ -331,6 +340,11 @@ function showLines3(){
 };
 
 function hideContainer(){
+
+    if (splash == true) {
+        deleteSplash();
+    } splash = false;
+
     container
         .transition()
         .duration(500)
@@ -374,6 +388,25 @@ function hideCircles(){
         .transition()
         .duration(500)
         .attr('r', data => 1);
+}
+
+function showCnnCircles(){
+
+    d3.select('svg')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+
+    d3.select('.svgbase')
+        .transition()
+        .duration(0)
+        .attr('opacity', 0)
+
+    svgdata.selectAll('.cnnCircles')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+
 }
 
 function mouseover(d){
@@ -473,16 +506,17 @@ dispatch.on('active', function(index){
 
     transitions = [
         emptyFunction,
-        showContainer,
-        showPoints,
-        emptyFunction,
-        toMean,
-        showLines1,
-        showLines2,
-        showLines3,
-        showCircles,
-        hideCircles,
-        emptyFunction
+        hideContainer, // showContainer,
+        showCnnCircles,
+        // showPoints,
+        // emptyFunction,
+        // toMean,
+        // showLines1,
+        // showLines2,
+        // showLines3,
+        // showCircles,
+        // hideCircles,
+        // emptyFunction
     ]
 
     transitions[index]();
@@ -525,17 +559,24 @@ const xScale = d3.scaleLinear()
     .domain([2015.7, 2021])
     .range([0, width]);
 
+const xBands = d3.scaleBand()
+    .domain(d3.range(0,6))
+    .range([0, width]);
+
 const yTicks = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
 const yScale = d3.scaleLinear()
     .domain([0, 0.6])
     .range([height, margin.top]);
-
 const yScale2 = d3.scaleLinear()
     .domain([0, 450])
     .range([height, margin.top]);
 const yScale3 = d3.scaleLinear()
     .domain([0, 25])
     .range([height, margin.top]);
+
+const yBands = d3.scaleBand()
+    .domain(d3.range(0,6))
+    .range([margin.top, height]);
 
 const colorScale = d3.scaleOrdinal()
     .domain(['CNN','Fox News'])
@@ -546,8 +587,12 @@ const delayScale = d3.scaleLinear()
     .range([0, 1000]);
 
 const radiusScale = d3.scaleSqrt()
-        .domain([0, 143425])
-        .range([0, 200])
+    .domain([0, 143425])
+    .range([0, 200])
+
+const radiusScale2 = d3.scaleSqrt()
+    .domain([0, 28639])
+    .range([0, 150])
 
 const container = d3.select('svg')
     .attr('opacity', 0)
@@ -662,8 +707,11 @@ svgbase.selectAll('.legendText')
 
 trump_weeks.then(function(d){
 
+    var trumpPlots = svgdata.append('g')
+        .classed('trump-plots', true);
+
     // add points
-    svgdata.selectAll('.point')
+    trumpPlots.selectAll('.point')
         .data(d)
         .enter()
         .append('circle')
@@ -683,7 +731,7 @@ trump_weeks.then(function(d){
         .entries(d);
     
     // add first set of lines
-    svgdata.selectAll('.line1')
+    trumpPlots.selectAll('.line1')
         .data(nested_d)
         .enter()
         .append('path')
@@ -700,7 +748,7 @@ trump_weeks.then(function(d){
         });
 
     // add second set of lines
-    svgdata.selectAll('.line2')
+    trumpPlots.selectAll('.line2')
         .data(nested_d)
         .enter()
         .append('path')
@@ -735,7 +783,7 @@ trump_weeks.then(function(d){
     ]
 
     // add network totals circles
-    svgdata.append('g')
+    trumpPlots.append('g')
         .classed('totals', true)
         .selectAll('.totalCircles')
         .data(networkTotals)
@@ -756,7 +804,7 @@ trump_weeks.then(function(d){
         .attr('fill-opacity', data => data.f0)
         .attr('fill', data => colorScale(data.network)); 
 
-    svgdata.select('.totals')
+    trumpPlots.select('.totals')
         .selectAll('.totalText')
         .data(networkTotals)
         .enter()
@@ -774,9 +822,9 @@ trump_weeks.then(function(d){
                 return height / 2 + radiusScale(28107) + margin.bottom;
             } else {return height / 2};
         })
-        .text(data => data.value.toString().replace(/(\d{3})$/, ',$1'))
+        .text(data => data.value.toString().replace(/(\d{3})$/, ',$1'));
     
-    svgdata.select('.totals')
+    trumpPlots.select('.totals')
         .selectAll('.totalLabels')
         .data(networkLabels)
         .enter()
@@ -790,9 +838,88 @@ trump_weeks.then(function(d){
         .attr('y', function(data){
             return height / 2 - radiusScale(data.value) - 20;    
         })
-        .text(data => data.network)
+        .text(data => data.network);
         
-    svgdata.select('.totals')
+    trumpPlots.select('.totals')
         .attr('opacity', 0)
+
+});
+
+cnn_words.then(function(d){
+
+    // group list of words by word
+    const word_groups = d3.nest()
+        .key(d => d.word)
+        .entries(d)
+
+    // count number of occurences for each word
+    var word_totals = []
+    d3.map(word_groups, function(d){
+        
+        var entry = {
+            word: d.key,
+            n: d.values.length
+        };
+        word_totals.push(entry)
+    });
+
+    word_totals = word_totals
+        .sort((a, b) => {
+            return b.n - a.n
+        })
+        .slice(0,36)
+        .map(function(d){
+            return {
+                word: d.word,
+                n: d.n,
+                radius: radiusScale2(d.n)
+            };
+        });
+
+    var cnn_grp = svgdata.append('g')
+        .classed('cnn_grp', true)
+    
+    // clumping function from https://bl.ocks.org/d3indepth/9d9f03a0016bc9df0f13b0d52978c02f
+    var clumpCircles = d3.forceSimulation(word_totals)
+        .force('charge', d3.forceManyBody().strength(50))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => d.radius))
+        .on('tick', reposition);
+
+    function reposition() {
+        var cnnCircles = cnn_grp
+            .selectAll('.cnnCircles')
+            .data(word_totals)
+
+        var cnnCircleText = cnn_grp
+            .selectAll('.cnnCircleText')
+            .data(word_totals)
+            
+        cnnCircles.enter()
+            .append('circle')
+            .classed('cnnCircles', true)
+            .attr('r', d => d.radius)
+            .merge(cnnCircles)
+            .attr('fill', colorScale('CNN'))
+            .attr('fill-opacity', 0.5)
+            .attr('stroke', colorScale('CNN'))
+            .attr('stroke-width', 3)
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
+
+        cnnCircleText.enter()
+            .append('text')
+            .classed('cnnCircleText', true)
+            .text(d => d.word)
+            .merge(cnnCircleText)
+            .attr('text-anchor', 'middle')
+            .attr('x', d => d.x)
+            .attr('y', d => d.y)
+            .attr('fill', 'white')
+            .attr('font-size', '20px');
+
+        cnnCircles.exit().remove();
+        cnnCircleText.exit().remove();
+    };
 
 })
