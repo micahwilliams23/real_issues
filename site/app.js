@@ -134,7 +134,7 @@ function showPoints(){
         .attr('fill-opacity', '0')
         .transition()
         .attr('fill-opacity', '1')
-        .text('Percent of CNN and Fox News Headlines Containing \'trump\' by week')
+        .text('Percent of CNN and Fox News Headlines Containing \'Trump\' by week')
 };
 
 function toMean(){
@@ -481,8 +481,8 @@ dispatch.on('active', function(index){
         showLines2,
         showLines3,
         showCircles,
-        emptyFunction,
-        hideCircles
+        hideCircles,
+        emptyFunction
     ]
 
     transitions[index]();
@@ -725,13 +725,13 @@ trump_weeks.then(function(d){
     var networkTotals = [
         {network: 'CNN', value: 143425, f0: 0.5},
         {network: 'CNN', value: 28107, f0: 1},
-        {network: 'Fox News', value: 5237, f0: 0.5},
-        {network: 'Fox News', value: 1592, f0: 1},
+        {network: 'Fox News', value: 5957, f0: 0.5},
+        {network: 'Fox News', value: 1689, f0: 1},
     ]
 
     var networkLabels = [
         {network: 'CNN', value: 143425},
-        {network: 'Fox News', value: 5237}
+        {network: 'Fox News', value: 5957}
     ]
 
     // add network totals circles
@@ -744,7 +744,7 @@ trump_weeks.then(function(d){
         .classed('totalCircles', true)
         .attr('r', 1)
         .attr('cy', function(data){
-            if (data.value == 1592) {
+            if (data.value == 1689) {
                 return height / 2 + radiusScale(5237) - radiusScale(1592);
             } else if (data.value == 28107) {
                 return height / 2 + radiusScale(143425) - radiusScale(28107);
@@ -768,8 +768,8 @@ trump_weeks.then(function(d){
         .attr('font-weight', 'bolder')
         .attr('font-family', 'Helvetica')
         .attr('y', function(data){
-            if (data.value == 1592) {
-                return height / 2 + radiusScale(1592);
+            if (data.value == 1689) {
+                return height / 2 + radiusScale(1689);
             } else if (data.value == 28107) {
                 return height / 2 + radiusScale(28107) + margin.bottom;
             } else {return height / 2};
