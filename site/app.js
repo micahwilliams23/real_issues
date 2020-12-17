@@ -20,6 +20,14 @@ const cnn_words = d3.csv('data/cnn_words.csv', function(x){
     };
 });
 
+const headlines = d3.csv('data/headlines.csv', function(x){
+    return {
+        title: x.title,
+        date: Date(x.date),
+        network: x.network
+    };
+})
+
 // set the dimensions and margins of the graph
 var margin = {top: 50, right: 45, bottom: 30, left: 45},
 width = window.innerWidth * 0.65 - margin.left - margin.right,
@@ -493,7 +501,6 @@ function mouseleave(d){
 
 function mouseover2(d){
 
-    console.log('mouse on')
     svgdata.selectAll('.cnnBar')
         .transition()
         .duration(100)
@@ -503,6 +510,8 @@ function mouseover2(d){
         .transition()
         .duration(0)
         .attr('stroke', colorScale('CNN'))
+
+    headlineQuery = d3.select(this).data()[0].word
 };
 
 function mousemove2(d){
@@ -530,8 +539,7 @@ function emptyFunction(){};
 // find position of top of sections
 const sections = d3.selectAll('.section-contents')
 sectionPositions = [];
-var startPos;
-var lastIndex;
+var startPos, lastIndex, headlineQuery;
 
 sections.each(function(d, i){
     var top = this.getBoundingClientRect().top;
@@ -631,7 +639,7 @@ const delayScale = d3.scaleLinear()
     .range([0, 1000]);
 
 const radiusScale = d3.scaleSqrt()
-    .domain([0, 143425])
+    .domain([0, 186966])
     .range([0, 200])
 
 const radiusScale2 = d3.scaleSqrt()
@@ -819,14 +827,14 @@ trump_weeks.then(function(d){
 
     // add network totals data
     var networkTotals = [
-        {network: 'CNN', value: 143425, f0: 0.5},
-        {network: 'CNN', value: 28107, f0: 1},
+        {network: 'CNN', value: 186966, f0: 0.5},
+        {network: 'CNN', value: 38702, f0: 1},
         {network: 'Fox News', value: 5957, f0: 0.5},
-        {network: 'Fox News', value: 1689, f0: 1},
+        {network: 'Fox News', value: 1692, f0: 1},
     ]
 
     var networkLabels = [
-        {network: 'CNN', value: 143425},
+        {network: 'CNN', value: 186966},
         {network: 'Fox News', value: 5957}
     ]
 
@@ -840,10 +848,10 @@ trump_weeks.then(function(d){
         .classed('totalCircles', true)
         .attr('r', 1)
         .attr('cy', function(data){
-            if (data.value == 1689) {
-                return height / 2 + radiusScale(5237) - radiusScale(1592);
-            } else if (data.value == 28107) {
-                return height / 2 + radiusScale(143425) - radiusScale(28107);
+            if (data.value == 1692) {
+                return height / 2 + radiusScale(5957) - radiusScale(1592);
+            } else if (data.value == 38702) {
+                return height / 2 + radiusScale(186966) - radiusScale(38702);
             } else return height / 2;
         })
         .attr('cx', data => width / 4 + xBands(data.network))
@@ -864,10 +872,10 @@ trump_weeks.then(function(d){
         .attr('font-weight', 'bolder')
         .attr('font-family', 'Helvetica')
         .attr('y', function(data){
-            if (data.value == 1689) {
-                return height / 2 + radiusScale(1689);
-            } else if (data.value == 28107) {
-                return height / 2 + radiusScale(28107) + margin.bottom;
+            if (data.value == 1692) {
+                return height / 2 + radiusScale(1692);
+            } else if (data.value == 38702) {
+                return height / 2 + radiusScale(38702) + margin.bottom;
             } else {return height / 2};
         })
         .text(data => data.value.toString().replace(/(\d{3})$/, ',$1'));
@@ -927,7 +935,7 @@ cnn_words.then(function(d){
     var words = [];
     d3.map(word_totals, d => words.push(d.word))
 
-    xScale2.domain([0, 30000]).range([0, width-160])
+    xScale2.domain([0, 40000]).range([0, width-160])
     yBands.domain(words).padding(0.2)
 
     var cnnPlots = svgdata.append('g')
@@ -978,4 +986,29 @@ cnn_words.then(function(d){
         .attr('opacity', 0)
         .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
         .text(d => d.n.toString().replace(/\w{3}$/, c => ',' + c));
-})
+});
+
+headlines.then(function(d){
+
+    const getHeadlines = function(q){
+        
+        // create arry of headlines
+        matches = [];
+        
+        // iterate through headlines and check for matches until 20 are found
+        while (matches.length < 21) {
+            d3.map(d, function(d){
+    
+                // set regex for query and find matching headlines
+                var query = new RegExp(q, 'i')
+                if (query.test(d.title) == true) {
+                    matches.push(d.title);
+                };
+            });
+        };
+
+        console.log(matches)
+    };
+
+    // getHeadlines('trump')
+});
