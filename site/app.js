@@ -388,9 +388,9 @@ function hideCircles(){
         .transition()
         .duration(500)
         .attr('r', data => 1);
-}
+};
 
-function showCnnCircles(){
+function showCnnBars(){
 
     d3.select('svg')
         .transition()
@@ -402,12 +402,26 @@ function showCnnCircles(){
         .duration(0)
         .attr('opacity', 0)
 
-    svgdata.selectAll('.cnnCircles')
+    svgdata.selectAll('.cnnBar')
+        .transition()
+        .ease(d3.easeCircle)
+        .duration(1000)
+        .attr('opacity', 1)
+        .attr('width', d => xScale2(d.n))
+        .delay(500)
+
+    svgdata.selectAll('.cnnBarLabel')
         .transition()
         .duration(500)
         .attr('opacity', 1)
+        .delay(500)
+    svgdata.selectAll('.cnnBarN')
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .delay(500)
 
-}
+};
 
 function mouseover(d){
 
@@ -429,7 +443,7 @@ function mouseover(d){
         .duration(50)
         .attr('r', 10);
 
-}
+};
 
 function mousemove(d){
 
@@ -462,7 +476,7 @@ function mousemove(d){
         .attr('y', y + 15 + 'px')
         .text(newText);
 
-}
+};
 
 function mouseleave(d){
 
@@ -475,7 +489,40 @@ function mouseleave(d){
         .transition()
         .duration(50)
         .attr('r', 3);
-}
+};
+
+function mouseover2(d){
+
+    console.log('mouse on')
+    svgdata.selectAll('.cnnBar')
+        .transition()
+        .duration(100)
+        .attr('stroke', '#444')
+
+    d3.select(this)
+        .transition()
+        .duration(0)
+        .attr('stroke', colorScale('CNN'))
+};
+
+function mousemove2(d){
+    svgdata.selectAll('.cnnBar')
+        .transition()
+        .duration(100)
+        .attr('stroke', '#444')
+
+    d3.select(this)
+        .transition()
+        .duration(0)
+        .attr('stroke', colorScale('CNN'))
+};
+
+function mouseleave2(d){
+    svgdata.selectAll('.cnnBar')
+        .transition()
+        .duration(100)
+        .attr('stroke', colorScale('CNN'))
+};
 
 function emptyFunction(){};
 
@@ -506,17 +553,17 @@ dispatch.on('active', function(index){
 
     transitions = [
         emptyFunction,
-        hideContainer, // showContainer,
-        showCnnCircles,
-        // showPoints,
-        // emptyFunction,
-        // toMean,
-        // showLines1,
-        // showLines2,
-        // showLines3,
-        // showCircles,
-        // hideCircles,
-        // emptyFunction
+        showContainer,
+        showPoints,
+        emptyFunction,
+        toMean,
+        showLines1,
+        showLines2,
+        showLines3,
+        showCircles,
+        hideCircles,
+        emptyFunction,
+        showCnnBars,
     ]
 
     transitions[index]();
@@ -558,9 +605,7 @@ const xTicks = [2016, 2017, 2018, 2019, 2020, 2021];
 const xScale = d3.scaleLinear()
     .domain([2015.7, 2021])
     .range([0, width]);
-
-const xBands = d3.scaleBand()
-    .domain(d3.range(0,6))
+const xScale2 = d3.scaleLinear()
     .range([0, width]);
 
 const yTicks = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6];
@@ -575,7 +620,6 @@ const yScale3 = d3.scaleLinear()
     .range([height, margin.top]);
 
 const yBands = d3.scaleBand()
-    .domain(d3.range(0,6))
     .range([margin.top, height]);
 
 const colorScale = d3.scaleOrdinal()
@@ -592,7 +636,11 @@ const radiusScale = d3.scaleSqrt()
 
 const radiusScale2 = d3.scaleSqrt()
     .domain([0, 28639])
-    .range([0, 150])
+    .range([0, width / 7])
+
+const textScale = d3.scaleLinear()
+    .domain([1290, 28639])
+    .range([20,50])
 
 const container = d3.select('svg')
     .attr('opacity', 0)
@@ -867,7 +915,7 @@ cnn_words.then(function(d){
         .sort((a, b) => {
             return b.n - a.n
         })
-        .slice(0,36)
+        .slice(0,20)
         .map(function(d){
             return {
                 word: d.word,
@@ -876,50 +924,58 @@ cnn_words.then(function(d){
             };
         });
 
-    var cnn_grp = svgdata.append('g')
-        .classed('cnn_grp', true)
+    var words = [];
+    d3.map(word_totals, d => words.push(d.word))
+
+    xScale2.domain([0, 30000]).range([0, width-160])
+    yBands.domain(words).padding(0.2)
+
+    var cnnPlots = svgdata.append('g')
+        .classed('cnn-plots', true)
+        
+    // add bars
+    cnnPlots.selectAll('.cnnBar')
+        .data(word_totals)
+        .enter()
+        .append('rect')
+        .classed('cnnBar', true)
+        .attr('width', 0)
+        .attr('height', yBands.bandwidth())
+        .attr('x', 160)
+        .attr('y', d => yBands(d.word))
+        .attr('fill', '#111')
+        .attr('stroke', colorScale('CNN'))
+        .attr('stroke-width', 3)
+        .attr('opacity', 1)
+        .on('mouseover', mouseover2)
+        .on('mousemove', mousemove2)
+        .on('mouseleave', mouseleave2);
+
+    // add word labels
+    cnnPlots.selectAll('.cnnBarLabel')
+        .data(word_totals)
+        .enter()
+        .append('text')
+        .classed('cnnBarLabel', true)
+        .attr('text-anchor', 'end')
+        .attr('x', d => 150)
+        .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+        .attr('font-size', 20)
+        .attr('fill', 'white')
+        .attr('opacity', 0)
+        .text(d => d.word);
     
-    // clumping function from https://bl.ocks.org/d3indepth/9d9f03a0016bc9df0f13b0d52978c02f
-    var clumpCircles = d3.forceSimulation(word_totals)
-        .force('charge', d3.forceManyBody().strength(50))
-        .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(d => d.radius))
-        .on('tick', reposition);
-
-    function reposition() {
-        var cnnCircles = cnn_grp
-            .selectAll('.cnnCircles')
-            .data(word_totals)
-
-        var cnnCircleText = cnn_grp
-            .selectAll('.cnnCircleText')
-            .data(word_totals)
-            
-        cnnCircles.enter()
-            .append('circle')
-            .classed('cnnCircles', true)
-            .attr('r', d => d.radius)
-            .merge(cnnCircles)
-            .attr('fill', colorScale('CNN'))
-            .attr('fill-opacity', 0.5)
-            .attr('stroke', colorScale('CNN'))
-            .attr('stroke-width', 3)
-            .attr('cx', d => d.x)
-            .attr('cy', d => d.y);
-
-        cnnCircleText.enter()
-            .append('text')
-            .classed('cnnCircleText', true)
-            .text(d => d.word)
-            .merge(cnnCircleText)
-            .attr('text-anchor', 'middle')
-            .attr('x', d => d.x)
-            .attr('y', d => d.y)
-            .attr('fill', 'white')
-            .attr('font-size', '20px');
-
-        cnnCircles.exit().remove();
-        cnnCircleText.exit().remove();
-    };
-
+    // add numbers 
+    cnnPlots.selectAll('.cnnBarN')
+        .data(word_totals)
+        .enter()
+        .append('text')
+        .classed('cnnBarN', true)
+        .attr('text-anchor', 'start')
+        .attr('x', d => xScale2(d.n) + 170)
+        .attr('font-size', 20)
+        .attr('fill', 'white')
+        .attr('opacity', 0)
+        .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+        .text(d => d.n.toString().replace(/\w{3}$/, c => ',' + c));
 })
