@@ -13,10 +13,17 @@ const trump_weeks = d3.csv('data/trump_averages.csv', function(x){
 
 const cnn_words = d3.csv('data/cnn_words.csv', function(x){
     return {
-        id: x.id,
-        show: x.show,
         date: Date(x.date),
-        word: x.word
+        word: x.word,
+        network: x.network
+    };
+});
+
+const fox_words = d3.csv('data/fox_words.csv', function(x){
+    return {
+        date: Date(x.date),
+        word: x.word,
+        network: x.network
     };
 });
 
@@ -24,6 +31,7 @@ const headlines = d3.csv('data/headlines.csv', function(x){
     return {
         title: x.title,
         date: Date(x.date),
+        month: +x.month,
         network: x.network
     };
 })
@@ -396,39 +404,119 @@ function hideCircles(){
         .transition()
         .duration(500)
         .attr('r', data => 1);
+
+    hideBars();
 };
 
-function showCnnBars(){
+function showBars(){
 
-    d3.select('svg')
-        .transition()
-        .duration(500)
-        .attr('opacity', 1)
+    if(atLoad === false){
+        d3.select('svg')
+            .transition()
+            .duration(500)
+            .attr('opacity', 1)
 
-    d3.select('.svgbase')
-        .transition()
-        .duration(0)
-        .attr('opacity', 0)
+        d3.select('.svgbase')
+            .transition()
+            .duration(0)
+            .attr('opacity', 0)
 
-    svgdata.selectAll('.cnnBar')
+        svgdata.selectAll('.bar')
+            .transition()
+            .ease(d3.easeCircle)
+            .duration(500)
+            .attr('opacity', 1)
+            .attr('width', d => xScale2(d.n));
+
+        svgdata.selectAll('.barLabel')
+            .transition()
+            .duration(500)
+            .attr('opacity', 1);
+            
+        svgdata.selectAll('.barN')
+            .transition()
+            .duration(500)
+            .attr('opacity', 1);
+
+        svgdata.selectAll('.barRank')
+            .transition()
+            .duration(500)
+            .attr('opacity', 1);
+
+        svgdata.select('.xaxis2')
+            .transition()
+            .duration(500)
+            .attr('opacity', 1)
+    }
+    atLoad = false;
+};
+
+function hideBars(){
+
+    svgdata.selectAll('.bar')
         .transition()
         .ease(d3.easeCircle)
-        .duration(1000)
-        .attr('opacity', 1)
-        .attr('width', d => xScale2(d.n))
-        .delay(500)
-
-    svgdata.selectAll('.cnnBarLabel')
-        .transition()
         .duration(500)
         .attr('opacity', 1)
-        .delay(500)
-    svgdata.selectAll('.cnnBarN')
+        .attr('width', 0)
+
+    svgdata.selectAll('.barLabel')
         .transition()
         .duration(500)
-        .attr('opacity', 1)
-        .delay(500)
+        .attr('opacity', 0)
 
+    svgdata.selectAll('.barN')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+    
+    svgdata.selectAll('.barRank')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+
+    svgdata.select('.xaxis2')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+
+    svgbase.select('.yaxis1')
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+};
+
+function barUp(n){
+    bar0 = bar0 + 10;
+    hideBars();
+    if(n == 'CNN'){
+        setTimeout(function(){makeCnnBars()}, 500);
+    } else {
+        setTimeout(function(){makeFoxBars()}, 500);
+    }
+};
+
+function barDown(n){
+    if(bar0 !== 0){
+        bar0 = bar0 - 10;
+        hideBars();
+        
+        if(n == 'CNN'){
+            setTimeout(function(){makeCnnBars()}, 500);
+        } else {
+            setTimeout(function(){makeFoxBars()}, 500);
+        }
+    };
+};
+
+function resetBar0(n){
+    bar0 = 0;
+    hideBars();
+    if(n == 'CNN'){
+        setTimeout(function(){makeCnnBars()}, 500);
+    } else {
+        setTimeout(function(){makeFoxBars()}, 500);
+    }
 };
 
 function mouseover(d){
@@ -500,8 +588,12 @@ function mouseleave(d){
 };
 
 function mouseover2(d){
+    
+    var headlineQuery = d3.select(this).data()[0].word
+    var thisNetwork = d3.select(this).data()[0].network
+    console.log(thisNetwork);
 
-    svgdata.selectAll('.cnnBar')
+    svgdata.selectAll('.bar')
         .transition()
         .duration(100)
         .attr('stroke', '#444')
@@ -509,37 +601,216 @@ function mouseover2(d){
     d3.select(this)
         .transition()
         .duration(0)
-        .attr('stroke', colorScale('CNN'))
+        .attr('stroke', colorScale(thisNetwork));
 
-    headlineQuery = d3.select(this).data()[0].word
-};
+    getHeadlines(headlineQuery, thisNetwork)
+        .then(function(d){
 
-function mousemove2(d){
-    svgdata.selectAll('.cnnBar')
-        .transition()
-        .duration(100)
-        .attr('stroke', '#444')
-
-    d3.select(this)
-        .transition()
-        .duration(0)
-        .attr('stroke', colorScale('CNN'))
+            const randHeadlines = selectRandom(d, 7)
+            svgdata.selectAll('.headlineBox')
+                .data(randHeadlines)
+                .enter()
+                .append('text')
+                .classed('headline', true)
+                .text(d => d)
+                .attr('text-anchor', 'start')
+                .attr('x', 0)
+                .attr('y', (d, i) => height / 2 + 25 + i * 50)
+                .attr('fill', 'white')
+                .attr('font-size', 18)
+                .attr('font-style', 'italic')
+        })
+    
 };
 
 function mouseleave2(d){
-    svgdata.selectAll('.cnnBar')
+    
+    var thisNetwork = d3.select(this).data()[0].network
+
+    svgdata.selectAll('.bar')
         .transition()
         .duration(100)
-        .attr('stroke', colorScale('CNN'))
+        .attr('stroke', colorScale(thisNetwork))
+
+    svgdata.selectAll('.headline')
+        .remove()
 };
 
 function emptyFunction(){};
+
+function getHeadlines(q, networks){
+        
+    // create arry of headlines
+    matches = [];
+    var networkRegex = RegExp(networks)
+    
+    var matchesPromise = headlines.then(function(d){
+        // iterate through headlines and check for matches until 20 are found
+        d3.map(d, function(d){
+
+            // set regex for query and find matching headlines
+            var query = new RegExp(q, 'i')
+            if (query.test(d.title) == true & d.network.match(networkRegex) !== null) {
+                matches.push(d.title);
+            };
+        });
+        return matches;
+    })
+    return matchesPromise;
+};
+
+function selectRandom(A, n){
+
+    var result = [];
+    for(var i = 0; i < n;){
+        // generate a random number in [0,1) times array length
+        const randIndex = Math.floor(Math.random() * A.length)
+
+        // continue if new element not in array already (indexOf returns -1 if no match)
+        if(result.indexOf(A[randIndex]) !== -1){continue;};
+
+        // add element to results array and add one to iterator
+        result.push(A[randIndex]);
+        i++;
+    }
+    return result;
+}
+
+function showSearchPlot(){
+    
+    svgbase
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+
+    svgbase.select('.yaxis1')
+        .transition()
+        .duration(0)
+        .attr('opacity', 0);
+
+    container.selectAll('.yaxis2')
+        .transition()
+        .duration(0)
+        .attr('opacity', 0);
+    
+    container.selectAll('.yaxis3')
+        .transition()
+        .duration(0)
+        .attr('opacity', 0);
+    
+    container.selectAll('.yaxis4')
+        .transition()
+        .duration(0)
+        .attr('opacity', 1);
+}
+
+function searchPlot(){
+
+    var yScale4 = d3.scaleLinear()
+        .range([height, margin.top]);
+
+    var query = document.getElementById('search').value;
+    var queryRegex = new RegExp(document.getElementById('search').value, 'i');
+    headlines.then(function(d){
+
+        const nested_d = d3.nest()
+            .key(d => d.network)
+            .key(d => d.month)
+            .entries(d)
+        
+        // iterate through both networks
+        var results = [];
+        d3.map(nested_d, function(d){
+            
+            // iterate through every month
+            var network = d.key, months = d.values;
+            months.forEach(function(e){
+                var month = e.key, matches = 0, total = 0;
+                e.values.forEach(function(f){
+                    if(f.title.match(queryRegex) !== null){
+                        matches++;
+                    }
+                    total++;
+                })
+                results.push({
+                    network: network,
+                    month: month,
+                    pct: matches / total * 100,
+                    total: total,
+                    matches: matches
+                });
+            })
+        })
+
+        const nested_results = d3.nest()
+            .key(d => d.network)
+            .entries(results)
+
+        var pcts = [];
+        d3.map(results, d => pcts.push(d.pct))
+        var upperBound = Math.min(Math.max(...pcts) * 1.2, 100);
+        upperBound = (upperBound === 0) ? 1 : upperBound;
+        console.log(upperBound);
+
+        yScale4 = yScale4
+            .domain([0, upperBound]);
+
+        // add lines
+        container.selectAll('.line3')
+            .remove()
+            .data(nested_results)
+            .enter()
+            .append('path')
+            .classed('line3', true)
+            .attr('fill', data => colorScale(data.key))
+            .attr('opacity', 1)
+            .attr('fill-opacity', 0.5)
+            .attr('stroke', data => colorScale(data.key))
+            .attr('stroke-width', 3)
+            .attr('d', function(d){
+                return d3.area()
+                .x(d => margin.left + xScale(d.month))
+                .y1(d => yScale4(d.pct))
+                .y0(yScale4(0))
+                (d.values)
+            });
+
+        // add y axis
+        svgbase.append('g')
+            .classed('yaxis4', true)
+            .call(d3.axisLeft(yScale4).ticks(5).tickFormat(d => d+'%'))
+            .attr('transform', 'translate('+ margin.left +',0)')
+            .attr('opacity', 0);
+
+
+    })
+
+    svgbase.select('.yaxis4')
+        .transition()
+        .duration(250)
+        .attr('opacity', 1);
+
+    // change y grid
+    container.selectAll('.ygrid')
+        .transition()
+        .duration(500)
+        .attr('y1', d => yScale4(d))
+        .attr('y2', d => yScale4(d))
+
+    container.select('#plot-title')
+        .transition()
+        .duration(500)
+        .attr('fill-opacity', '0')
+        .transition()
+        .attr('fill-opacity', '1')
+        .text('Percent of CNN and Fox News Titles Containing \''+ query +'\' by month')
+}
 
 // set up scroller... many thanks to https://vallandingham.me/scroller.html
 // find position of top of sections
 const sections = d3.selectAll('.section-contents')
 sectionPositions = [];
-var startPos, lastIndex, headlineQuery;
+var startPos, lastIndex, bar0 = 0, atLoad = true;
 
 sections.each(function(d, i){
     var top = this.getBoundingClientRect().top;
@@ -571,7 +842,14 @@ dispatch.on('active', function(index){
         showCircles,
         hideCircles,
         emptyFunction,
-        showCnnBars,
+        makeCnnBars,
+        emptyFunction,
+        resetBar0,
+        emptyFunction,
+        emptyFunction,
+        hideBars,
+        emptyFunction,
+        showSearchPlot
     ]
 
     transitions[index]();
@@ -628,7 +906,7 @@ const yScale3 = d3.scaleLinear()
     .range([height, margin.top]);
 
 const yBands = d3.scaleBand()
-    .range([margin.top, height]);
+    .range([margin.top, height/2]);
 
 const colorScale = d3.scaleOrdinal()
     .domain(['CNN','Fox News'])
@@ -657,13 +935,13 @@ const container = d3.select('svg')
 
 const svgbase = container.append('g')
     .classed('svgbase', true);
-
-const svgdata = container.append('g')
-    .classed('svgdata', true);
-
+    
 const tooltip = container.append('g')
     .classed('tooltip', true)
-
+    
+const svgdata = container.append('g')
+    .classed('svgdata', true);
+    
 tooltip
     .append('rect')
     .attr('opacity', 0)
@@ -708,6 +986,7 @@ svgbase.selectAll('.ygrid')
         
 // add x axis
 svgbase.append('g')
+    .classed('xaxis1', true)
     .call(d3.axisBottom(xScale).ticks(5).tickValues(xTicks).tickFormat(d => d))
     .attr('transform', 'translate(' + margin.left + ',' + height +')');
 
@@ -760,6 +1039,13 @@ svgbase.selectAll('.legendText')
     .attr('height', 15)
     .attr('fill', 'white')
     .text(data => data.network)
+
+const foxBars = svgdata.append('g')
+    .classed('fox-bars', true)
+
+foxBars
+    .append('g')
+    .classed('headlineBox', true)
 
 trump_weeks.then(function(d){
 
@@ -901,114 +1187,255 @@ trump_weeks.then(function(d){
 
 });
 
-cnn_words.then(function(d){
+function makeCnnBars() {
+    cnn_words.then(function(d){
 
-    // group list of words by word
-    const word_groups = d3.nest()
-        .key(d => d.word)
-        .entries(d)
+        svgdata
+            .select('.cnn-bars')
+            .remove()
+        svgdata
+            .select('.fox-bars')
+            .remove()
 
-    // count number of occurences for each word
-    var word_totals = []
-    d3.map(word_groups, function(d){
-        
-        var entry = {
-            word: d.key,
-            n: d.values.length
-        };
-        word_totals.push(entry)
-    });
+        const cnnBars = svgdata
+            .append('g')
+            .classed('cnn-bars', true)
 
-    word_totals = word_totals
-        .sort((a, b) => {
-            return b.n - a.n
-        })
-        .slice(0,20)
-        .map(function(d){
-            return {
-                word: d.word,
-                n: d.n,
-                radius: radiusScale2(d.n)
+        // group list of words by word
+        const word_groups = d3.nest()
+            .key(d => d.word)
+            .entries(d)
+
+        // count number of occurences for each word
+        var word_totals = []
+        d3.map(word_groups, function(d){
+            
+            var entry = {
+                word: d.key,
+                n: d.values.length
             };
+            word_totals.push(entry)
         });
 
-    var words = [];
-    d3.map(word_totals, d => words.push(d.word))
-
-    xScale2.domain([0, 40000]).range([0, width-160])
-    yBands.domain(words).padding(0.2)
-
-    var cnnPlots = svgdata.append('g')
-        .classed('cnn-plots', true)
-        
-    // add bars
-    cnnPlots.selectAll('.cnnBar')
-        .data(word_totals)
-        .enter()
-        .append('rect')
-        .classed('cnnBar', true)
-        .attr('width', 0)
-        .attr('height', yBands.bandwidth())
-        .attr('x', 160)
-        .attr('y', d => yBands(d.word))
-        .attr('fill', '#111')
-        .attr('stroke', colorScale('CNN'))
-        .attr('stroke-width', 3)
-        .attr('opacity', 1)
-        .on('mouseover', mouseover2)
-        .on('mousemove', mousemove2)
-        .on('mouseleave', mouseleave2);
-
-    // add word labels
-    cnnPlots.selectAll('.cnnBarLabel')
-        .data(word_totals)
-        .enter()
-        .append('text')
-        .classed('cnnBarLabel', true)
-        .attr('text-anchor', 'end')
-        .attr('x', d => 150)
-        .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
-        .attr('font-size', 20)
-        .attr('fill', 'white')
-        .attr('opacity', 0)
-        .text(d => d.word);
-    
-    // add numbers 
-    cnnPlots.selectAll('.cnnBarN')
-        .data(word_totals)
-        .enter()
-        .append('text')
-        .classed('cnnBarN', true)
-        .attr('text-anchor', 'start')
-        .attr('x', d => xScale2(d.n) + 170)
-        .attr('font-size', 20)
-        .attr('fill', 'white')
-        .attr('opacity', 0)
-        .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
-        .text(d => d.n.toString().replace(/\w{3}$/, c => ',' + c));
-});
-
-headlines.then(function(d){
-
-    const getHeadlines = function(q){
-        
-        // create arry of headlines
-        matches = [];
-        
-        // iterate through headlines and check for matches until 20 are found
-        while (matches.length < 21) {
-            d3.map(d, function(d){
-    
-                // set regex for query and find matching headlines
-                var query = new RegExp(q, 'i')
-                if (query.test(d.title) == true) {
-                    matches.push(d.title);
+        word_totals = word_totals
+            .sort((a, b) => {
+                return b.n - a.n
+            })
+            .map(function(d, i){
+                return {
+                    word: d.word,
+                    n: d.n,
+                    radius: radiusScale2(d.n),
+                    rank: i + 1,
+                    network: 'CNN'
                 };
-            });
-        };
+            })
+            .slice(bar0, bar0 + 10);
 
-        console.log(matches)
-    };
+        var words = [], barLengths = [];
+        const domains = [0, 1000, 2000, 5000, 10000, 40000, 45000]
+        d3.map(word_totals, d => words.push(d.word))
+        d3.map(word_totals, d => barLengths.push(d.n))
+        
+        // set domain of scale with longest bar
+        var barMax = Math.max(...barLengths)
+        xScale2.domain([0, domains[d3.bisect(domains, barMax)]]).range([0, width-160])
+        yBands.domain(words).padding(0.2)
 
-    // getHeadlines('trump')
-});
+        cnnBars.append('g')
+            .classed('xaxis2', true)
+            .call(d3.axisBottom(xScale2).ticks(5))
+            .attr('transform', 'translate(' + 160 + ',' + height / 2 +')')
+            .attr('opacity', 0);
+        
+        // add word rank
+        cnnBars.selectAll('.barRank')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barRank', true)
+            .attr('text-anchor', 'middle')
+            .attr('x', d => xScale2(d.n) / 2 + 160)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .attr('font-size', 20)
+            .attr('fill', '#7777dd')
+            .attr('opacity', 0)
+            .text(d => '#' + d.rank);
+            
+        // add bars
+        cnnBars.selectAll('.bar')
+            .data(word_totals)
+            .enter()
+            .append('rect')
+            .classed('bar', true)
+            .attr('width', 0)
+            .attr('height', yBands.bandwidth())
+            .attr('x', 160)
+            .attr('y', d => yBands(d.word))
+            .attr('fill-opacity', 0)
+            .attr('stroke', colorScale('CNN'))
+            .attr('stroke-width', 3)
+            .attr('opacity', 1)
+            .on('mouseover', mouseover2)
+            .on('mouseleave', mouseleave2);
+
+        // add word labels
+        cnnBars.selectAll('.barLabel')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barLabel', true)
+            .attr('text-anchor', 'end')
+            .attr('x', d => 150)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .attr('font-size', 20)
+            .attr('fill', 'white')
+            .attr('opacity', 0)
+            .text(d => d.word == 'coronavirus|covid' ? 'coronavirus' : d.word);
+        
+        // add numbers 
+        cnnBars.selectAll('.barN')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barN', true)
+            .attr('text-anchor', 'start')
+            .attr('x', d => xScale2(d.n) + 170)
+            .attr('font-size', 20)
+            .attr('fill', 'white')
+            .attr('opacity', 0)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .text(d => d.n < 1000 ? d.n : d.n.toString().replace(/\w{3}$/, c => ',' + c));
+
+        cnnBars
+            .append('g')
+            .classed('headlineBox', true)
+    }).then(function(){showBars();});
+}; 
+makeCnnBars();
+
+function makeFoxBars() {
+    fox_words.then(function(d){
+
+        svgdata
+            .select('.cnn-bars')
+            .remove()
+        svgdata
+            .select('.fox-bars')
+            .remove()
+
+        const foxBars = svgdata
+            .append('g')
+            .classed('fox-bars', true)
+
+        // group list of words by word
+        const word_groups = d3.nest()
+            .key(d => d.word)
+            .entries(d)
+
+        // count number of occurences for each word
+        var word_totals = []
+        d3.map(word_groups, function(d){
+            
+            var entry = {
+                word: d.key,
+                n: d.values.length
+            };
+            word_totals.push(entry)
+        });
+
+        word_totals = word_totals
+            .sort((a, b) => {
+                return b.n - a.n
+            })
+            .map(function(d, i){
+                return {
+                    word: d.word,
+                    n: d.n,
+                    radius: radiusScale2(d.n),
+                    rank: i + 1,
+                    network: 'Fox News'
+                };
+            })
+            .slice(bar0, bar0 + 10);
+
+        var words = [], barLengths = [];
+        const domains = [0, 200, 1000, 2000, 5000, 10000, 40000, 45000]
+        d3.map(word_totals, d => words.push(d.word))
+        d3.map(word_totals, d => barLengths.push(d.n))
+        
+        // set domain of scale with longest bar
+        var barMax = Math.max(...barLengths)
+        xScale2.domain([0, domains[d3.bisect(domains, barMax)]]).range([0, width-160])
+        yBands.domain(words).padding(0.2)
+
+        foxBars.append('g')
+            .classed('xaxis2', true)
+            .call(d3.axisBottom(xScale2).ticks(5))
+            .attr('transform', 'translate(' + 160 + ',' + height / 2 +')')
+            .attr('opacity', 0);
+        
+        // add word rank
+        foxBars.selectAll('.barRank')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barRank', true)
+            .attr('text-anchor', 'middle')
+            .attr('x', d => xScale2(d.n) / 2 + 160)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .attr('font-size', 20)
+            .attr('fill', '#ff7171')
+            .attr('opacity', 0)
+            .text(d => '#' + d.rank);
+            
+        // add bars
+        foxBars.selectAll('.bar')
+            .data(word_totals)
+            .enter()
+            .append('rect')
+            .classed('bar', true)
+            .attr('width', 0)
+            .attr('height', yBands.bandwidth())
+            .attr('x', 160)
+            .attr('y', d => yBands(d.word))
+            .attr('fill-opacity', 0)
+            .attr('stroke', colorScale('Fox News'))
+            .attr('stroke-width', 3)
+            .attr('opacity', 1)
+            .on('mouseover', mouseover2)
+            .on('mouseleave', mouseleave2);
+
+        // add word labels
+        foxBars.selectAll('.barLabel')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barLabel', true)
+            .attr('text-anchor', 'end')
+            .attr('x', d => 150)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .attr('font-size', 20)
+            .attr('fill', 'white')
+            .attr('opacity', 0)
+            .text(d => d.word == 'coronavirus|covid' ? 'coronavirus' : d.word);
+        
+        // add numbers 
+        foxBars.selectAll('.barN')
+            .data(word_totals)
+            .enter()
+            .append('text')
+            .classed('barN', true)
+            .attr('text-anchor', 'start')
+            .attr('x', d => xScale2(d.n) + 170)
+            .attr('font-size', 20)
+            .attr('fill', 'white')
+            .attr('opacity', 0)
+            .attr('y', d => yBands(d.word) + yBands.bandwidth() * 0.5 + 5)
+            .text(d => d.n < 1000 ? d.n : d.n.toString().replace(/\w{3}$/, c => ',' + c));
+
+        foxBars
+            .append('g')
+            .classed('headlineBox', true)
+    }).then(function(){showBars();});
+}; 
